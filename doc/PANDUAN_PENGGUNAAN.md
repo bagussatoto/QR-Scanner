@@ -12,6 +12,7 @@ Dokumen ini menjelaskan alur operasional, diagram alur langkah demi langkah (*fl
    - [B. Membuka, Mencari & Memfilter Riwayat Scan](#b-membuka-mencari--memfilter-riwayat-scan)
    - [C. Mengelola Item Scan (Salin, Favorit, Folder, Tag & Hapus)](#c-mengelola-item-scan-salin-favorit-folder-tag--hapus)
 3. [Panduan Developer & Cara Menjalankan Aplikasi](#3-panduan-developer--cara-menjalankan-aplikasi)
+4. [Flowchart Implementasi Teknis Kode](#4-flowchart-implementasi-teknis-kode)
 
 ---
 
@@ -188,3 +189,82 @@ flutter test test/database_test.dart
 # 4. Jalankan aplikasi pada perangkat yang terhubung
 flutter run
 ```
+
+---
+
+## 4. Flowchart Implementasi Teknis Kode
+
+Berikut adalah bagan alur (*flowchart*) implementasi teknis yang menghubungkan setiap komponen file, fungsi, dan alur data di dalam arsitektur aplikasi:
+
+### A. Flowchart Komponen & Aliran Data Antar-Lapisan
+
+```mermaid
+flowchart TD
+    subgraph UI_LAYER["1. Presentation Layer (UI)"]
+        UI_Home["HomePage (lib/main.dart)<br/>• Menampilkan tombol FAB Scan<br/>• Menampilkan teks hasil scan<br/>• Drawer navigasi ke riwayat"]
+        UI_Scan["HomePageState._scanQR()<br/>• Panggil BarcodeScanner.scan()<br/>• Tangani FormatException & PlatformException"]
+        UI_Detect["HomePageState._detectContentType(qrResult)<br/>• Deteksi tipe: url | wifi | vcard | geo | text"]
+        UI_History["ScanHistoryPage (lib/pages/scan_history_page.dart)<br/>• Search Bar & FilterChip Folder<br/>• StreamBuilder pembaruan real-time<br/>• Dialog Detail Scan & Salin Clipboard"]
+    end
+
+    subgraph SERVICE_LAYER["2. Service Layer (Logika Bisnis)"]
+        SVC_Scan["ScanService (lib/services/scan_service.dart)<br/>• insertScan(): Insert data scan baru<br/>• watchFilteredScans(): Query reaktif real-time<br/>• toggleFavorite() & deleteScan() (Soft delete)<br/>• logAction(): Catat log aksi ke SCAN_ACTIONS"]
+        SVC_FolderTag["FolderTagService (lib/services/folder_tag_service.dart)<br/>• createFolder() & deleteFolder()<br/>• createTag() & assignTagToScan() / removeTagFromScan()"]
+    end
+
+    subgraph DB_LAYER["3. Data Persistence Layer (Drift ORM)"]
+        DB_Singleton["AppDatabase.instance (lib/database/database.dart)<br/>• Drift ORM Singleton<br/>• MigrationStrategy: PRAGMA foreign_keys = ON"]
+        DB_Tables["Tabel Skema Drift (lib/database/tables.dart)<br/>• USERS & DEVICES (UUID v4)<br/>• SCAN_HISTORY (Data hasil scan)<br/>• FOLDERS & TAGS & SCAN_TAGS (M:N)<br/>• SCAN_ACTIONS & SYNC_QUEUE"]
+    end
+
+    subgraph SECURITY_LAYER["4. Security & Storage Engine (SQLCipher)"]
+        SEC_Storage["FlutterSecureStorage<br/>• Simpan kunci 256-bit di Keystore / Keychain"]
+        SEC_Cipher["SQLCipher Native Database (qr_scanner.sqlite)<br/>• PRAGMA key = \"x'<hexKey>'\"<br/>• Enkripsi AES-256 At-Rest pada disk perangkat"]
+    end
+
+    %% Alur Pemindaian & Penyimpanan
+    UI_Home -->|"1. Tekan Scan"| UI_Scan
+    UI_Scan -->|"2. String Hasil Scan"| UI_Detect
+    UI_Detect -->|"3. Data & Tipe Konten"| SVC_Scan
+    SVC_Scan -->|"4. insertScan()"| DB_Singleton
+
+    %% Alur Riwayat & Interaksi
+    UI_Home -->|"Navigasi Drawer"| UI_History
+    UI_History -->|"Berlangganan Stream Query"| SVC_Scan
+    UI_History -->|"Kelola Folder & Tag"| SVC_FolderTag
+    SVC_FolderTag -->|"Mutasi Folder / Tag"| DB_Singleton
+
+    %% Hubungan DB ke Security
+    DB_Singleton -->|"Definisi Tabel & Relasi"| DB_Tables
+    DB_Singleton -->|"Ambil Kunci Enkripsi"| SEC_Storage
+    DB_Singleton -->|"Baca / Tulis Terenkripsi"| SEC_Cipher
+```
+
+---
+
+### B. Flowchart Eksekusi Fungsi Kode Nyata
+
+```mermaid
+flowchart LR
+    A["_scanQR()<br/>(lib/main.dart)"] -->|"String Mentah"| B["_detectContentType()<br/>(lib/main.dart)"]
+    B -->|"Tipe: url/wifi/text"| C["ScanService.insertScan()<br/>(lib/services/scan_service.dart)"]
+    C -->|"Generate UUID v4"| D["into(scanHistory).insertReturning()<br/>(lib/database/database.dart)"]
+    D -->|"Ambil Kunci 256-bit"| E["_getOrCreateDbKey()<br/>(Keystore/Keychain)"]
+    E -->|"AES-256 Terenkripsi"| F[("SQLCipher Native<br/>(qr_scanner.sqlite)")]
+    F -->|"Stream Event Otomatis"| G["StreamBuilder Reaktif<br/>(ScanHistoryPage)"]
+```
+
+---
+
+### C. Pemetaan Komponen Flowchart ke Kode Sumber
+
+| Komponen Flowchart | File Sumber | Method / Class Konkrit | Fungsi dalam Sistem |
+| :--- | :--- | :--- | :--- |
+| **Scanner Kamera** | `lib/main.dart` | `HomePageState._scanQR()` | Menjalankan plugin kamera, membaca QR/barcode, dan menangani error. |
+| **Parser Tipe Konten** | `lib/main.dart` | `HomePageState._detectContentType()` | Mengidentifikasi format isi seperti URL web, Wi-Fi, vCard, atau lokasi geografis. |
+| **Logika Bisnis Scan** | `lib/services/scan_service.dart` | `ScanService.insertScan()` | Menghasilkan UUID v4, memastikan profil pengguna/perangkat ada, dan menyimpan scan. |
+| **Query Reaktif Riwayat** | `lib/services/scan_service.dart` | `ScanService.watchFilteredScans()` | Menggabungkan filter kata kunci (`LIKE`), favorit, dan folder secara *real-time*. |
+| **Pengelolaan Folder & Tag** | `lib/services/folder_tag_service.dart` | `FolderTagService` | Menangani operasi CRUD folder dan relasi *many-to-many* pada `scan_tags`. |
+| **Kunci Kriptografi** | `lib/database/database.dart` | `_getOrCreateDbKey()` | Membuat kunci acak 256-bit dan menyimpannya di Android Keystore / iOS Keychain. |
+| **Mesin Enkripsi DB** | `lib/database/database.dart` | `_openConnection()` | Membuka database dengan SQLCipher AES-256 (`PRAGMA key`). |
+
