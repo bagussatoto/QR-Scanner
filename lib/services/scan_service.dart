@@ -8,10 +8,15 @@ import 'package:drift/drift.dart';
 import 'package:flutterqrscan/database/database.dart';
 
 class ScanService {
-  ScanService._();
+  ScanService._([AppDatabase? db]) : _db = db ?? AppDatabase.instance;
+
+  /// Creates a [ScanService] backed by a custom [AppDatabase] instance
+  /// (used in unit tests with an in-memory database).
+  factory ScanService.forTesting(AppDatabase db) => ScanService._(db);
+
   static final ScanService instance = ScanService._();
 
-  final AppDatabase _db = AppDatabase.instance;
+  final AppDatabase _db;
 
   /// Insert a new scan entry for the local user/device.
   Future<void> insertScan({

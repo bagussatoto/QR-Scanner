@@ -31,11 +31,22 @@ part 'database.g.dart';
 class AppDatabase extends _$AppDatabase {
   AppDatabase._internal() : super(_openConnection());
 
+  /// Constructor for unit tests using an in-memory [QueryExecutor]
+  /// (e.g. `NativeDatabase.memory()`).
+  AppDatabase.forTesting(QueryExecutor executor) : super(executor);
+
   static final AppDatabase _instance = AppDatabase._internal();
   static AppDatabase get instance => _instance;
 
   @override
   int get schemaVersion => 1;
+
+  @override
+  MigrationStrategy get migration => MigrationStrategy(
+        beforeOpen: (details) async {
+          await customStatement('PRAGMA foreign_keys = ON');
+        },
+      );
 
   /// Live stream of non-deleted scans, newest first.
   Stream<List<ScanHistoryData>> watchScans() => (select(scanHistory)
