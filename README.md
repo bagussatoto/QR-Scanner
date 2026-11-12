@@ -65,9 +65,10 @@ A lightweight, cross-platform Flutter mobile application for scanning QR codes a
 QR-Scanner/
 ├── .github/                  # Dependabot, funding & GitHub Actions CI workflow
 ├── android/                  # Android native wrapper & AndroidManifest.xml
-├── doc/                      # Technical documentation
+├── doc/                      # Technical & user documentation
 │   ├── DATABASE.md           # Data dictionary & SQLite/PostgreSQL DDL scripts
 │   ├── FLOWCHART.md          # System architecture & operational flowcharts
+│   ├── PANDUAN_PENGGUNAAN.md # End-user & developer usage guide
 │   └── RINGKASAN_PERBAIKAN.md# Comprehensive project improvement summary
 ├── ios/                      # iOS native Runner & Info.plist
 ├── lib/
@@ -328,6 +329,7 @@ Contributions are welcome! Please follow standard Git workflow practices:
 
 ## Resources
 
+- [User & Developer Guide (`doc/PANDUAN_PENGGUNAAN.md`)](doc/PANDUAN_PENGGUNAAN.md)
 - [Database Specification & DDL (`doc/DATABASE.md`)](doc/DATABASE.md)
 - [System & Operational Flowcharts (`doc/FLOWCHART.md`)](doc/FLOWCHART.md)
 - [Project Improvement Summary (`doc/RINGKASAN_PERBAIKAN.md`)](doc/RINGKASAN_PERBAIKAN.md)
