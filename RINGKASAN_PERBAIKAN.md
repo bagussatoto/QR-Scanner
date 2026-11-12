@@ -1,6 +1,6 @@
 # Ringkasan Perbaikan & Pengembangan Proyek QR-Scanner
 
-Dokumen ini merangkum seluruh perbaikan, perancangan arsitektur basis data, diagram ERD, implementasi fitur aplikasi Flutter, hingga pengujian otomatis (CI) yang telah diterapkan pada repositori **QR-Scanner**.
+Dokumen ini merangkum seluruh perbaikan, perancangan arsitektur basis data, diagram alur operasional (*flowchart*), diagram ERD, implementasi fitur aplikasi Flutter, hingga pengujian otomatis (CI) yang telah diterapkan pada repositori **QR-Scanner**.
 
 ---
 
@@ -38,7 +38,70 @@ flowchart TB
 
 ---
 
-## 2. Entity Relationship Diagram (ERD)
+## 2. Flowchart Operasional Aplikasi
+
+### A. Flowchart Pemindaian QR/Barcode & Penyimpanan Terenkripsi (`HomePage`)
+
+```mermaid
+flowchart TD
+    Start(["Mulai: Pengguna Buka Aplikasi"]) --> Home["Tampil HomePage (lib/main.dart)"]
+    Home --> TapScan["Pengguna Tekan Tombol 'Scan'"]
+    TapScan --> CamPerm{"Izin Kamera Diberikan?"}
+
+    CamPerm -- "Tidak (CameraAccessDenied)" --> ErrPerm["Tampilkan Pesan:<br/>'Camera permission was denied'"]
+    CamPerm -- "Ya" --> OpenCam["Buka Kamera Pemindai (BarcodeScanner.scan)"]
+
+    OpenCam --> UserAct{"Aksi Pengguna di Kamera"}
+    UserAct -- "Tekan Tombol Back (FormatException)" --> CancelMsg["Tampilkan Pesan:<br/>'You pressed the back button...'"]
+    UserAct -- "QR / Barcode Terbaca" --> DetectType["Deteksi Tipe Konten (_detectContentType)<br/>url | wifi | vcard | geo | text"]
+
+    DetectType --> CallSvc["Panggil ScanService.insertScan()"]
+    CallSvc --> InitDB{"Database Sudah Terbuka?"}
+
+    InitDB -- "Belum" --> KeyCheck["Ambil / Buat Kunci 256-bit di<br/>Keystore / Keychain (FlutterSecureStorage)"]
+    KeyCheck --> OpenCipher["Buka qr_scanner.sqlite dengan<br/>SQLCipher (PRAGMA key & foreign_keys = ON)"]
+    OpenCipher --> EnsureUser
+
+    InitDB -- "Sudah" --> EnsureUser["Pastikan Baris Users & Devices Lokal Ada"]
+    EnsureUser --> InsertRow["Simpan ke Tabel SCAN_HISTORY<br/>(UUID v4, syncStatus = 'pending')"]
+    InsertRow --> UpdateUI["Tampilkan Hasil Scan di Layar Utama"]
+    ErrPerm --> End(["Selesai"])
+    CancelMsg --> End
+    UpdateUI --> End
+```
+
+### B. Flowchart Manajemen Riwayat Scan (`ScanHistoryPage`)
+
+```mermaid
+flowchart TD
+    OpenHist(["Buka Riwayat Scan<br/>(Drawer / Ikon AppBar)"]) --> StreamInit["Berlangganan Stream:<br/>ScanService.watchFilteredScans()"]
+    StreamInit --> FilterCheck["Terapkan Filter Aktif:<br/>1. Keyword Search (rawValue/title/notes)<br/>2. Hanya Favorit (isFavorite)<br/>3. Folder Terpilih (folderId)<br/>4. Hanya Data Aktif (isDeleted = false)"]
+    FilterCheck --> RenderList["Tampilkan Daftar Scan (Terbaru di Atas)"]
+
+    RenderList --> UserInteract{"Interaksi Pengguna"}
+
+    UserInteract -- "Ketik di Search / Klik Chip Folder / Bintang AppBar" --> FilterCheck
+
+    UserInteract -- "Klik Ikon Bintang pada Item" --> ToggleFav["ScanService.toggleFavorite()<br/>Ubah isFavorite & updatedAt"]
+    ToggleFav --> StreamInit
+
+    UserInteract -- "Geser Item ke Kiri (Swipe Dismiss)" --> SoftDel["ScanService.deleteScan()<br/>Set isDeleted = true (Soft Delete)"]
+    SoftDel --> StreamInit
+
+    UserInteract -- "Klik Tombol Salin (Copy)" --> CopyClip["Salin ke Clipboard +<br/>ScanService.logAction(actionType: 'copy')<br/>Simpan ke Tabel SCAN_ACTIONS"]
+    CopyClip --> ShowSnack["Tampilkan SnackBar Konfirmasi"]
+
+    UserInteract -- "Klik Item Scan (Buka Dialog Detail)" --> DetailModal["Tampilkan Dialog Detail Scan"]
+    DetailModal --> DetailAct{"Aksi di Dialog Detail"}
+    DetailAct -- "Ubah Dropdown Folder" --> AssignFolder["ScanService.assignFolder()"]
+    DetailAct -- "Pilih / Buat FilterChip Tag" --> AssignTag["FolderTagService.assignTagToScan() /<br/>removeTagFromScan() (Tabel SCAN_TAGS)"]
+    AssignFolder --> StreamInit
+    AssignTag --> StreamInit
+```
+
+---
+
+## 3. Entity Relationship Diagram (ERD)
 
 Skema basis data relasional dirancang secara *offline-first* dengan **9 entitas** yang saling berelasi:
 
@@ -163,7 +226,7 @@ erDiagram
 
 ---
 
-## 3. Roadmap Pengembangan Basis Data
+## 4. Roadmap Pengembangan Basis Data
 
 ```mermaid
 flowchart LR
@@ -179,7 +242,7 @@ flowchart LR
 
 ---
 
-## 4. Rincian Implementasi Fitur
+## 5. Rincian Implementasi Fitur
 
 ### A. Perombakan Dokumentasi (`README.md`)
 - Menghapus tautan GIF `gfycat.com` yang sudah mati dan memperbarui tautan dokumentasi resmi Flutter.
@@ -211,7 +274,7 @@ flowchart LR
 
 ---
 
-## 5. Daftar File yang Dibuat / Diperbarui
+## 6. Daftar File yang Dibuat / Diperbarui
 
 | Path File | Status | Fungsi Utama |
 | :--- | :--- | :--- |
@@ -225,11 +288,11 @@ flowchart LR
 | `lib/pages/scan_history_page.dart` | Baru | UI Riwayat Scan dengan Search Bar, Filter Chip Folder, Tag, & Copy |
 | `test/database_test.dart` | Baru | Suite unit test *in-memory* untuk tabel Drift dan lapisan *service* |
 | `.github/workflows/flutter_test.yml` | Baru | Pipeline CI otomatis untuk code-gen Drift dan eksekusi unit test |
-| `RINGKASAN_PERBAIKAN.md` | Diperbarui | Dokumen ringkasan perbaikan lengkap dengan diagram Arsitektur & ERD |
+| `RINGKASAN_PERBAIKAN.md` | Diperbarui | Dokumen ringkasan perbaikan lengkap dengan Arsitektur, Flowchart & ERD |
 
 ---
 
-## 6. Riwayat Commit GitHub (`origin/main`)
+## 7. Riwayat Commit GitHub (`origin/main`)
 
 | Commit SHA | Pesan Commit |
 | :--- | :--- |
@@ -239,3 +302,4 @@ flowchart LR
 | `19726f5` | `test: add Drift unit tests and GitHub Actions CI workflow` |
 | `4a59dd0` | `feat: add folder/tag management, search & favorite filters, and scan action logging` |
 | `a0eb144` | `docs: add RINGKASAN_PERBAIKAN.md project improvement summary` |
+| `8508a56` | `docs: add ERD, architecture, and roadmap diagrams to RINGKASAN_PERBAIKAN.md` |
