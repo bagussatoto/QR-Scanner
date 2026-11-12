@@ -31,6 +31,7 @@
 8. [Panduan Instalasi & Deployment](#8-panduan-instalasi--deployment)
 9. [Roadmap Pengembangan Lanjutan](#9-roadmap-pengembangan-lanjutan)
 10. [Indeks Dokumen Terkait](#10-indeks-dokumen-terkait)
+11. [Daftar Referensi & Pustaka Teknis](#11-daftar-referensi--pustaka-teknis)
 
 ---
 
@@ -393,3 +394,48 @@ Dokumentasi teknis pendukung yang tersedia pada folder [`doc/`](./):
 - [doc/FLOWCHART.md](FLOWCHART.md) — Seluruh diagram alur sistem, arsitektur data, dan alur CI.
 - [doc/PANDUAN_PENGGUNAAN.md](PANDUAN_PENGGUNAAN.md) — Panduan visual langkah demi langkah bagi pengguna akhir dan pengembang.
 - [doc/RINGKASAN_PERBAIKAN.md](RINGKASAN_PERBAIKAN.md) — Rekapitulasi historis pembaruan dan implementasi fitur yang telah selesai dilakukan.
+
+---
+
+## 11. Daftar Referensi & Pustaka Teknis
+
+Pengembangan arsitektur, basis data, keamanan, dan fungsionalitas aplikasi ini mengacu pada standar industri dan dokumentasi resmi berikut:
+
+### 11.1 Framework & Bahasa Pemrograman
+- **Flutter Official Documentation**: Panduan arsitektur aplikasi mobile, siklus hidup widget, dan manajemen status.  
+  Tautan: [https://docs.flutter.dev/](https://docs.flutter.dev/)
+- **Dart Language Tour & Specification**: Spesifikasi bahasa Dart 3.x, sistem tipe *sound null safety*, serta pustaka asynchronous (`async`/`await`/`Stream`).  
+  Tautan: [https://dart.dev/guides](https://dart.dev/guides)
+
+### 11.2 Basis Data & ORM (Drift & SQLite)
+- **Drift (formerly Moor) Documentation**: Dokumentasi resmi ORM Drift untuk Flutter, mencakup DSL tabel, generator `build_runner`, migrasi skema, dan unit testing in-memory.  
+  Tautan: [https://drift.simonbinder.eu/](https://drift.simonbinder.eu/)
+- **SQLite Database Engine Specification**: Standar engine SQLite, dukungan relasi `PRAGMA foreign_keys`, indeks komposit, serta *full-text search* (FTS5).  
+  Tautan: [https://www.sqlite.org/docs.html](https://www.sqlite.org/docs.html)
+
+### 11.3 Keamanan, Kriptografi & Penyimpanan Kunci
+- **Zetetic SQLCipher Cryptographic Design**: Arsitektur enkripsi basis data tingkat halaman (*page-level*) berbasis AES-256-CBC, PBKDF2 HMAC-SHA512 key derivation, dan MAC integritas halaman.  
+  Tautan: [https://www.zetetic.net/sqlcipher/design/](https://www.zetetic.net/sqlcipher/design/)
+- **Android Keystore System Guide**: Praktik terbaik Google untuk enkripsi master key di Android menggunakan hardware-backed security (TEE/SE) dan `EncryptedSharedPreferences`.  
+  Tautan: [https://developer.android.com/training/articles/keystore](https://developer.android.com/training/articles/keystore)
+- **Apple iOS Keychain Services API**: Panduan keamanan Apple untuk penyimpanan item sensitif dan sertifikat/kunci kriptografi pada *Secure Enclave*.  
+  Tautan: [https://developer.apple.com/documentation/security/keychain_services](https://developer.apple.com/documentation/security/keychain_services)
+- **Flutter Secure Storage Library**: Spesifikasi plugin penyimpanan aman multi-platform.  
+  Tautan: [https://pub.dev/packages/flutter_secure_storage](https://pub.dev/packages/flutter_secure_storage)
+
+### 11.4 Standar Format Barcode & QR Code
+- **ISO/IEC 18004:2015**: Standar internasional teknologi informasi — *Automatic identification and data capture techniques — QR Code bar code symbology specification*.
+- **RFC 6350 (vCard Format)**: Standar format pertukaran data kartu kontak elektronik.  
+  Tautan: [https://datatracker.ietf.org/doc/html/rfc6350](https://datatracker.ietf.org/doc/html/rfc6350)
+- **ZXing Barcode Format & Wi-Fi URI Scheme**: Spesifikasi sintaks decoding untuk barcode 1D/2D dan payload Wi-Fi (`WIFI:S:...;T:...;P:...;;`).  
+  Tautan: [https://github.com/zxing/zxing/wiki/Barcode-Contents](https://github.com/zxing/zxing/wiki/Barcode-Contents)
+
+### 11.5 Pola Desain Perangkat Lunak (*Software Architecture Patterns*)
+- **Martin Fowler — Transactional Outbox Pattern**: Arsitektur pengiriman event asinkron yang andal untuk sinkronisasi offline-first (`sync_queue`).  
+  Tautan: [https://microservices.io/patterns/data/transactional-outbox.html](https://microservices.io/patterns/data/transactional-outbox.html)
+- **RFC 4122 (A Universally Unique IDentifier - UUID URN Namespace)**: Pembangkitan UUID v4 berbasis nilai acak (pseudo-random) untuk identitas record terdistribusi.  
+  Tautan: [https://datatracker.ietf.org/doc/html/rfc4122](https://datatracker.ietf.org/doc/html/rfc4122)
+- **Mermaid JavaScript Charting Documentation**: Standar penulisan diagram Mermaid (`erDiagram`, `flowchart`, `sequenceDiagram`) pada Markdown.  
+  Tautan: [https://mermaid.js.org/](https://mermaid.js.org/)
+
+
