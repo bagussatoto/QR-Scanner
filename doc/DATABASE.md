@@ -489,3 +489,4 @@ CREATE POLICY "Users manage own scan_history"
     USING (auth.uid() = user_id)
     WITH CHECK (auth.uid() = user_id);
 ```
+

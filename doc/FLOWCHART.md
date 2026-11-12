@@ -179,3 +179,4 @@ flowchart LR
     Result -- "Ya" --> Pass(["Status CI: Hijau (Passed)"])
     Result -- "Tidak" --> Fail(["Status CI: Merah (Failed)"])
 ```
+

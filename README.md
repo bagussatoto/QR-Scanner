@@ -63,11 +63,20 @@ A lightweight, cross-platform Flutter mobile application for scanning QR codes a
 
 ```text
 QR-Scanner/
-├── .github/                  # Dependabot & repository funding configuration
+├── .github/                  # Dependabot, funding & GitHub Actions CI workflow
 ├── android/                  # Android native wrapper & AndroidManifest.xml
+├── doc/                      # Technical documentation
+│   ├── DATABASE.md           # Data dictionary & SQLite/PostgreSQL DDL scripts
+│   ├── FLOWCHART.md          # System architecture & operational flowcharts
+│   └── RINGKASAN_PERBAIKAN.md# Comprehensive project improvement summary
 ├── ios/                      # iOS native Runner & Info.plist
 ├── lib/
+│   ├── database/             # Drift ORM tables & SQLCipher database singleton
+│   ├── pages/                # ScanHistoryPage UI (search, filter, tags)
+│   ├── services/             # ScanService & FolderTagService business logic
 │   └── main.dart             # Application entry point & scanner UI
+├── test/
+│   └── database_test.dart    # In-memory Drift unit test suite
 ├── fa.png                    # Application banner / preview asset
 ├── pubspec.yaml              # Flutter dependencies and asset manifest
 └── README.md                 # Project documentation, ERD & database roadmap
@@ -319,6 +328,9 @@ Contributions are welcome! Please follow standard Git workflow practices:
 
 ## Resources
 
+- [Database Specification & DDL (`doc/DATABASE.md`)](doc/DATABASE.md)
+- [System & Operational Flowcharts (`doc/FLOWCHART.md`)](doc/FLOWCHART.md)
+- [Project Improvement Summary (`doc/RINGKASAN_PERBAIKAN.md`)](doc/RINGKASAN_PERBAIKAN.md)
 - [Flutter Official Documentation](https://docs.flutter.dev/)
 - [Dart Language Tour](https://dart.dev/language)
 - [Mermaid ER Diagram Syntax](https://mermaid.js.org/syntax/entityRelationshipDiagram.html)

@@ -140,3 +140,4 @@ class FolderTagService {
     return rows.map((row) => row.readTable(_db.tags)).toList();
   }
 }
+
