@@ -1,10 +1,23 @@
 # Panduan Penggunaan Aplikasi — QR-Scanner
 
-Dokumen ini menjelaskan alur singkat dan langkah-langkah cara menggunakan aplikasi **Flutter QR-Scanner** bagi pengguna akhir (*end-user*) maupun pengembang (*developer*).
+Dokumen ini menjelaskan alur operasional, diagram alur langkah demi langkah (*flowchart*), dan panduan teknis cara menggunakan aplikasi **Flutter QR-Scanner** bagi pengguna akhir (*end-user*) maupun pengembang (*developer*).
 
 ---
 
-## 1. Alur Singkat Penggunaan
+## Daftar Isi
+
+1. [Alur Singkat Penggunaan (Overview)](#1-alur-singkat-penggunaan-overview)
+2. [Diagram & Panduan Langkah demi Langkah](#2-diagram--panduan-langkah-demi-langkah)
+   - [A. Memindai QR Code atau Barcode](#a-memindai-qr-code-atau-barcode-homepage)
+   - [B. Membuka, Mencari & Memfilter Riwayat Scan](#b-membuka-mencari--memfilter-riwayat-scan)
+   - [C. Mengelola Item Scan (Salin, Favorit, Folder, Tag & Hapus)](#c-mengelola-item-scan-salin-favorit-folder-tag--hapus)
+3. [Panduan Developer & Cara Menjalankan Aplikasi](#3-panduan-developer--cara-menjalankan-aplikasi)
+
+---
+
+## 1. Alur Singkat Penggunaan (Overview)
+
+Berikut adalah gambaran besar perjalanan pengguna (*user journey*) dari pertama kali membuka aplikasi hingga mengelola data hasil pemindaian:
 
 ```mermaid
 flowchart LR
@@ -16,56 +29,162 @@ flowchart LR
 
 ---
 
-## 2. Langkah demi Langkah Penggunaan Fitur
+## 2. Diagram & Panduan Langkah demi Langkah
 
 ### A. Memindai QR Code atau Barcode (`HomePage`)
+
+Proses pemindaian dilakukan langsung dari layar utama dengan dukungan deteksi tipe data otomatis dan enkripsi lokal:
+
+```mermaid
+flowchart TD
+    A(["Mulai: Buka Aplikasi"]) --> B["Layar Utama (HomePage)"]
+    B --> C["Tekan Tombol 'Scan' (Tombol Oranye)"]
+    C --> D{"Izin Akses Kamera"}
+    
+    D -- "Belum Pernah Diminta" --> E["Muncul Dialog Izin Kamera OS"]
+    E -- "Ditolak" --> F["Pesan: 'Camera permission was denied'"]
+    E -- "Diberikan" --> G["Kamera Pemindai Aktif"]
+    D -- "Sudah Diberikan" --> G
+    
+    G --> H{"Aksi Pengguna"}
+    H -- "Tekan Tombol Kembali (Batal)" --> I["Pesan: 'You pressed the back button before scanning anything'"]
+    H -- "Arahkan ke QR / Barcode" --> J["QR / Barcode Berhasil Terbaca"]
+    
+    J --> K["Deteksi Otomatis Tipe Konten:<br/>• URL (http/https)<br/>• Wi-Fi (WIFI:)<br/>• Kontak vCard (BEGIN:VCARD)<br/>• Lokasi Geo (geo:)<br/>• Teks Biasa / Barcode Produk"]
+    K --> L["Simpan Otomatis ke Database Terenkripsi<br/>(SQLCipher AES-256)"]
+    L --> M["Tampilkan Isi Hasil Scan di Layar Utama"]
+    M --> N(["Selesai"])
+    F --> N
+    I --> N
+```
+
+#### Langkah Operasional:
 1. Buka aplikasi **QR-Scanner**.
-2. Tekan tombol mengambang berwarna oranye **Scan** (ikon kamera) di bagian tengah bawah layar.
-3. Jika baru pertama kali digunakan, pilih **Allow / Izinkan** pada dialog permintaan akses kamera.
-4. Arahkan kamera ke kode QR atau Barcode hingga terdeteksi secara otomatis.
-5. Setelah terbaca:
-   - Isi QR/Barcode langsung ditampilkan di tengah layar utama.
-   - Aplikasi secara otomatis mendeteksi tipe konten (`url`, `wifi`, `vcard`, `geo`, atau `text`) dan menyimpannya ke basis data lokal terenkripsi (**SQLCipher**).
+2. Tekan tombol mengambang berwarna oranye bertuliskan **Scan** di tengah bawah layar.
+3. Pilih **Allow / Izinkan** saat sistem meminta izin akses kamera.
+4. Arahkan lensa kamera ke arah QR Code atau Barcode.
+5. Begitu kode terbaca:
+   - Teks hasil scan langsung ditampilkan di tengah layar.
+   - Data otomatis tersimpan dengan aman ke tabel `SCAN_HISTORY` di dalam database terenkripsi **SQLCipher**.
 
 ---
 
-### B. Membuka & Mencari Riwayat Scan (`Riwayat Scan`)
-1. Masuk ke halaman **Riwayat Scan** melalui salah satu cara berikut:
-   - Tekan **ikon jam (Riwayat)** di pojok kanan atas *AppBar*, atau
-   - Tekan ikon menu garis tiga (**Drawer**) di pojok kiri atas, lalu pilih **Riwayat Scan**.
-2. **Pencarian Teks (*Search Bar*)**:
-   - Ketik kata kunci pada kolom pencarian di bagian atas untuk memfilter riwayat berdasarkan isi scan, judul, atau catatan secara *real-time*.
-3. **Filter Favorit**:
-   - Tekan **ikon Bintang** di pojok kanan atas *AppBar* untuk hanya menampilkan item yang ditandai sebagai favorit.
-4. **Filter Berdasarkan Folder**:
-   - Buat folder baru dengan menekan **ikon Folder (+)** di kanan atas *AppBar*.
-   - Pilih chip nama folder (misalnya `Semua`, `Kerja`, `Wi-Fi`) di bawah kolom pencarian untuk memfilter daftar scan.
+### B. Membuka, Mencari & Memfilter Riwayat Scan
+
+Halaman **Riwayat Scan** menyajikan data secara *real-time* dengan fitur pencarian teks dan filter multi-level:
+
+```mermaid
+flowchart TD
+    A(["Pengguna di Layar Utama"]) --> B{"Cara Membuka Riwayat"}
+    B -- "Opsi 1" --> C["Tekan Ikon Jam di AppBar (Kanan Atas)"]
+    B -- "Opsi 2" --> D["Buka Menu Drawer (Kiri Atas) -> Pilih 'Riwayat Scan'"]
+    
+    C --> E["Halaman Riwayat Scan (ScanHistoryPage)"]
+    D --> E
+    
+    E --> F["Daftar Scan Ditampilkan (Real-time Stream)"]
+    F --> G{"Opsi Pencarian & Filter"}
+    
+    G -- "Pencarian Kata Kunci" --> H["Ketik pada Kolom Pencarian:<br/>Mencari teks isi, judul, atau catatan"]
+    G -- "Filter Favorit" --> I["Tekan Ikon Bintang di AppBar:<br/>Hanya menampilkan item berbintang"]
+    G -- "Filter per Folder" --> J["Ketuk Chip Nama Folder:<br/>Contoh: 'Semua', 'Kerja', 'Pribadi'"]
+    G -- "Buat Folder Baru" --> K["Tekan Ikon Folder (+) di AppBar:<br/>Ketik nama folder -> Klik 'Simpan'"]
+    
+    H --> L["Daftar Hasil Terfilter Secara Otomatis"]
+    I --> L
+    J --> L
+    K --> L
+```
+
+#### Langkah Operasional:
+1. **Membuka Riwayat**: Tekan ikon **Jam** di *AppBar* kanan atas atau buka menu garis tiga (**Drawer**) di kiri atas dan pilih **Riwayat Scan**.
+2. **Mencari Data**: Ketik kata kunci pada **Search Bar** di bagian atas; daftar scan akan menyaring secara otomatis tanpa perlu menekan tombol cari.
+3. **Filter Favorit**: Tekan ikon **Bintang** di *AppBar* atas untuk menampilkan hanya scan yang telah difavoritkan.
+4. **Filter Folder**: Ketuk salah satu chip folder di bawah search bar untuk menyaring scan berdasarkan kategori.
+5. **Membuat Folder**: Tekan tombol **Folder (+)** di *AppBar* kanan atas, masukkan nama folder (misal: *Tagihan*, *Wi-Fi Kantor*), lalu klik **Simpan**.
 
 ---
 
 ### C. Mengelola Item Scan (Salin, Favorit, Folder, Tag & Hapus)
 
-| Aksi | Cara Melakukan di Aplikasi |
-| :--- | :--- |
-| **Salin Cepat (Copy)** | Tekan **ikon Copy** di sebelah kanan item scan (atau tombol **Salin** di dalam dialog Detail Scan). Teks akan disalin ke *clipboard* dan tercatat di riwayat aksi (`ScanActions`). |
-| **Tandai Favorit** | Tekan **ikon Bintang** di sebelah kanan item scan. |
-| **Pindahkan ke Folder** | Ketuk item scan untuk membuka dialog **Detail Scan**, lalu pilih folder tujuan pada dropdown **Folder**. |
-| **Tambah / Pilih Tag** | Di dalam dialog **Detail Scan**, klik **`+ Tag Baru`** untuk membuat label baru, atau ketuk chip tag yang sudah ada untuk memasang/melepas tag pada scan tersebut. |
-| **Hapus Item Scan** | Geser (*swipe*) baris item scan ke arah kiri hingga muncul latar merah berikon tempat sampah. |
+Setiap item scan dapat dikelola langsung dari baris riwayat atau melalui jendela dialog detail lengkap:
+
+```mermaid
+flowchart TD
+    A["Daftar Item Riwayat Scan"] --> B{"Pilihan Interaksi Pengguna"}
+    
+    B -- "Salin Cepat" --> C["Tekan Ikon Salin (Copy) di Baris Item"]
+    C --> C1["Teks Disalin ke Clipboard"]
+    C1 --> C2["Tercatat Otomatis di Log SCAN_ACTIONS"]
+    C2 --> C3["Muncul Notifikasi SnackBar Konfirmasi"]
+
+    B -- "Toggle Bintang" --> D["Tekan Ikon Bintang di Baris Item"]
+    D --> D1["Status Favorit Berubah (isFavorite: true / false)"]
+
+    B -- "Hapus Cepat" --> E["Geser Baris ke Kiri (Swipe Left)"]
+    E --> E1["Latar Berubah Merah (Tempat Sampah)"]
+    E1 --> E2["Soft Delete (isDeleted = true)<br/>Data Disembunyikan & Aman untuk Sinkronisasi"]
+
+    B -- "Buka Detail Lengkap" --> F["Ketuk Baris Item Scan"]
+    F --> G["Muncul Dialog 'Detail Scan'"]
+    G --> H{"Aksi di Dialog Detail"}
+    
+    H -- "Pindah Folder" --> H1["Pilih Nama Folder pada Dropdown"]
+    H -- "Pasang / Lepas Tag" --> H2["Ketuk Chip Tag yang Tersedia"]
+    H -- "Tambah Tag Baru" --> H3["Klik '+ Tag Baru' -> Ketik Nama -> Klik 'Tambah'"]
+    H -- "Salin Teks" --> H4["Klik Tombol 'Salin' di Bawah Dialog"]
+    H -- "Tutup" --> H5["Klik Tombol 'Tutup'"]
+```
+
+#### Ringkasan Aksi Pengguna:
+
+| Aksi | Cara Melakukan | Efek pada Sistem |
+| :--- | :--- | :--- |
+| **Salin (Copy)** | Tekan ikon **Copy** di baris scan atau tombol **Salin** pada dialog detail. | Teks tersalin ke *clipboard* dan aksi tercatat di tabel `SCAN_ACTIONS`. |
+| **Tandai Favorit** | Tekan ikon **Bintang** di baris scan. | Kolom `is_favorite` diperbarui secara instan. |
+| **Atur Folder** | Buka dialog detail scan, pilih folder di dropdown **Folder**. | Kolom `folder_id` diperbarui di tabel `SCAN_HISTORY`. |
+| **Kelola Tag** | Buka dialog detail scan, pilih chip tag yang ada atau klik **`+ Tag Baru`**. | Data relasi tersimpan pada tabel *many-to-many* `SCAN_TAGS`. |
+| **Hapus (Delete)** | Geser (*swipe*) baris scan ke arah kiri. | Diberi status *soft delete* (`is_deleted = true`) sehingga tidak hilang permanen saat sinkronisasi cloud. |
 
 ---
 
-## 3. Cara Menjalankan Aplikasi (Untuk Developer)
+## 3. Panduan Developer & Cara Menjalankan Aplikasi
 
-Jika Anda menjalankan proyek ini dari kode sumber (*source code*):
+Diagram alur berikut menjelaskan urutan persiapan proyek dari *source code* hingga aplikasi siap diuji pada emulator atau perangkat fisik:
+
+```mermaid
+flowchart TD
+    Start(["Mulai Setup Developer"]) --> Clone["1. Clone Repositori Git:<br/><code>git clone https://github.com/bagussatoto/QR-Scanner.git</code>"]
+    Clone --> PubGet["2. Unduh Paket Dependensi:<br/><code>flutter pub get</code>"]
+    PubGet --> BuildRunner["3. Generate Kode ORM Drift:<br/><code>dart run build_runner build --delete-conflicting-outputs</code>"]
+    BuildRunner --> CheckGen{"File database.g.dart Terbentuk?"}
+    
+    CheckGen -- "Gagal" --> FixErr["Periksa Dependensi di pubspec.yaml"]
+    FixErr --> BuildRunner
+    
+    CheckGen -- "Berhasil" --> RunTest["4. Jalankan Unit Test (Opsional):<br/><code>flutter test test/database_test.dart</code>"]
+    RunTest --> LaunchApp["5. Jalankan Aplikasi:<br/><code>flutter run</code>"]
+    LaunchApp --> Target{"Pilih Target Perangkat"}
+    
+    Target --> Android["Perangkat / Emulator Android"]
+    Target --> iOS["Perangkat / Simulator iOS (macOS)"]
+    
+    Android --> Ready(["Aplikasi Berjalan Siap Digunakan"])
+    iOS --> Ready
+```
+
+#### Perintah Terminal Ringkas:
 
 ```bash
-# 1. Unduh seluruh paket dependensi
+# 1. Unduh paket pustaka
 flutter pub get
 
-# 2. Generate kode ORM Drift (lib/database/database.g.dart)
+# 2. Bangkitkan kode otomatis Drift ORM
 dart run build_runner build --delete-conflicting-outputs
 
-# 3. Jalankan aplikasi di perangkat Android / iOS / Emulator
+# 3. Jalankan pengujian unit
+flutter test test/database_test.dart
+
+# 4. Jalankan aplikasi pada perangkat yang terhubung
 flutter run
 ```
