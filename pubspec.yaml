@@ -26,7 +26,7 @@ dependencies:
   sqlite3: ^2.1.0
 
   # Secure storage for the database encryption key (Android Keystore / iOS Keychain)
-  flutter_secure_storage: ^9.0.0
+  flutter_secure_storage: ^11.0.0
 
 dev_dependencies:
   flutter_test:
