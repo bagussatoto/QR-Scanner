@@ -1,79 +1,217 @@
 # Ringkasan Perbaikan & Pengembangan Proyek QR-Scanner
 
-Dokumen ini merangkum seluruh perbaikan, perancangan arsitektur basis data, implementasi fitur aplikasi Flutter, hingga pengujian otomatis (CI) yang telah diterapkan pada repositori **QR-Scanner**.
+Dokumen ini merangkum seluruh perbaikan, perancangan arsitektur basis data, diagram ERD, implementasi fitur aplikasi Flutter, hingga pengujian otomatis (CI) yang telah diterapkan pada repositori **QR-Scanner**.
 
 ---
 
-## 1. Perombakan Dokumentasi, ERD & Database Roadmap (`README.md`)
+## 1. Diagram Arsitektur Aplikasi
 
-- **Pembaruan Struktur Profesional**:
-  - Menghapus tautan gambar GIF `gfycat.com` yang sudah tidak aktif dan memperbaiki kesalahan ketik pada dokumentasi lama.
-  - Menambahkan badge status proyek, daftar isi (*Table of Contents*), tabel *Tech Stack*, struktur direktori proyek, serta panduan konfigurasi Android (`AndroidManifest.xml`) dan iOS (`Info.plist`).
-- **Entity Relationship Diagram (ERD)**:
-  - Merancang skema basis data relasional *offline-first* menggunakan diagram **Mermaid `erDiagram`** yang terdiri dari **9 entitas**:
-    1. `USERS` — Profil pengguna lokal/terautentikasi.
-    2. `DEVICES` — Identitas perangkat Android/iOS untuk pelacakan sinkronisasi.
-    3. `FOLDERS` — Pengelompokan riwayat scan ke dalam kategori/folder.
-    4. `SCAN_HISTORY` — Tabel transaksi utama penyimpan hasil scan QR/barcode.
-    5. `QR_GENERATED` — Riwayat QR code yang dibuat oleh pengguna.
-    6. `TAGS` — Daftar label/tag kustom milik pengguna.
-    7. `SCAN_TAGS` — Tabel relasi *many-to-many* (`COMPOSITE PK (scan_id, tag_id)`) antara hasil scan dan tag.
-    8. `SCAN_ACTIONS` — Catatan interaksi pasca-scan (`copy`, `open_url`, `share`, dll.).
-    9. `SYNC_QUEUE` — Tabel *outbox pattern* untuk antrean sinkronisasi ke cloud.
-- **Database Roadmap**:
-  - Menyusun rencana pengembangan 4 fase mulai dari **Phase 1 (`v1.1.0`)** fondasi SQLite lokal (`drift`), **Phase 2 (`v1.2.0`)** QR Generator & pencatatan aksi, **Phase 3 (`v2.0.0`)** sinkronisasi cloud PostgreSQL (*Last-Write-Wins*), hingga **Phase 4 (`v2.1.0+`)** enkripsi *at-rest* (`SQLCipher`) & pengarsipan.
+Aplikasi kini menggunakan arsitektur berlapis (*Layered Architecture*) yang memisahkan antarmuka pengguna (UI), logika bisnis (*Service Layer*), dan penyimpanan lokal terenkripsi (*Encrypted Persistence Layer*):
 
----
+```mermaid
+flowchart TB
+    subgraph UI["Presentation / UI Layer"]
+        HP["HomePage (lib/main.dart)<br/>Pemindai Kamera & Drawer"]
+        SHP["ScanHistoryPage (lib/pages/scan_history_page.dart)<br/>Search Bar, Filter Favorit/Folder, Tag & Copy"]
+    end
 
-## 2. Implementasi Skema Basis Data Drift & Enkripsi SQLCipher
+    subgraph SVC["Service Layer"]
+        SS["ScanService (lib/services/scan_service.dart)<br/>CRUD Scan, Search, Filter & ScanActions"]
+        FTS["FolderTagService (lib/services/folder_tag_service.dart)<br/>CRUD Folder, Tag & Relasi ScanTags"]
+    end
 
-- **Definisi Tabel (`lib/database/tables.dart`)**:
-  - Mengimplementasikan ke-9 tabel sesuai ERD menggunakan paket `drift` dan `uuid` (UUID v4 yang di-generate di sisi klien agar aman untuk mode *offline*).
-  - Mengaktifkan *cascade delete* (`KeyAction.cascade`) pada `ScanActions` dan `ScanTags` serta *soft delete* (`isDeleted`) untuk mendukung sinkronisasi antar-perangkat.
-- **Enkripsi Basis Data *At-Rest* (`lib/database/database.dart`)**:
-  - Menggantikan SQLite standar dengan **SQLCipher** (`sqlcipher_flutter_libs` + `sqlite3`) berenkripsi AES-256.
-  - Kunci enkripsi 256-bit dibuat secara kriptografis (`Random.secure()`) pada saat aplikasi pertama kali dijalankan dan disimpan secara aman di **Android Keystore / iOS Keychain** melalui `flutter_secure_storage`.
-  - Menambahkan konstruktor `AppDatabase.forTesting(QueryExecutor executor)` dan mengaktifkan `PRAGMA foreign_keys = ON` agar skema dapat diuji menggunakan database *in-memory*.
+    subgraph DATA["Encrypted Persistence Layer"]
+        DB["AppDatabase (lib/database/database.dart)<br/>Drift ORM + MigrationStrategy (FK ON)"]
+        CIPHER[("SQLCipher (qr_scanner.sqlite)<br/>Enkripsi AES-256 At-Rest")]
+        KEY["FlutterSecureStorage<br/>Android Keystore / iOS Keychain (256-bit Key)"]
+    end
 
----
-
-## 3. Lapisan Layanan (*Service Layer*)
-
-- **`ScanService` (`lib/services/scan_service.dart`)**:
-  - Menyediakan operasi `insertScan`, `toggleFavorite`, `assignFolder`, dan `deleteScan` (*soft delete*).
-  - Menyediakan pencarian dan pemfilteran *real-time* (`searchScans` & `watchFilteredScans`) berdasarkan kata kunci (`rawValue`, `title`, `notes`), filter khusus favorit (`favoritesOnly`), serta filter per folder (`folderId`).
-  - Menyediakan pencatatan riwayat aksi pengguna ke tabel `ScanActions` (`logAction` & `getActionsForScan`).
-- **`FolderTagService` (`lib/services/folder_tag_service.dart`)**:
-  - Mengelola pembuatan, pembacaan *stream*, dan penghapusan folder (`createFolder`, `watchFolders`, `deleteFolder`). Saat folder dihapus, seluruh scan di dalamnya otomatis dilepaskan (`folderId = null`) dalam satu transaksi.
-  - Mengelola pembuatan tag (`createTag`) serta pemasangan/pelepasan tag ke hasil scan (`assignTagToScan`, `removeTagFromScan`, `getTagsForScan`).
+    HP --> SS
+    HP --> SHP
+    SHP --> SS
+    SHP --> FTS
+    SS --> DB
+    FTS --> DB
+    DB --> CIPHER
+    DB --> KEY
+```
 
 ---
 
-## 4. Perbaikan Kode Utama & Antarmuka Pengguna (UI)
+## 2. Entity Relationship Diagram (ERD)
 
-- **Pembersihan & Integrasi Halaman Utama (`lib/main.dart`)**:
-  - Menghapus class rusak/duplikat `HomePageStat extends $state<HomePage>` pada kode lama.
-  - Mengintegrasikan `_scanQR()` dengan `ScanService.instance.insertScan()` beserta deteksi tipe konten otomatis (`url`, `wifi`, `vcard`, `geo`, `text`).
-  - Menambahkan navigasi **Drawer** dan tombol pintasan di **AppBar** menuju halaman **Riwayat Scan**.
-- **Halaman Riwayat Scan Interaktif (`lib/pages/scan_history_page.dart`)**:
-  - Menampilkan daftar riwayat scan secara *real-time* menggunakan `StreamBuilder`.
-  - Menyediakan **Search Bar**, baris **ChoiceChip Folder**, tombol **Filter Favorit**, dan dialog **Buat Folder Baru**.
-  - Mendukung *swipe-to-delete* (`Dismissible`), tombol cepat **Salin (Copy)** ke `Clipboard` (yang otomatis tercatat ke `ScanActions`), serta dialog **Detail Scan** untuk mengubah Folder dan memilih/menambah **Tag** (`FilterChip`).
+Skema basis data relasional dirancang secara *offline-first* dengan **9 entitas** yang saling berelasi:
+
+```mermaid
+erDiagram
+    USERS ||--o{ DEVICES : "registers"
+    USERS ||--o{ FOLDERS : "owns"
+    USERS ||--o{ SCAN_HISTORY : "records"
+    USERS ||--o{ QR_GENERATED : "creates"
+    USERS ||--o{ TAGS : "defines"
+
+    DEVICES ||--o{ SCAN_HISTORY : "captures"
+    FOLDERS ||--o{ SCAN_HISTORY : "organizes"
+
+    SCAN_HISTORY ||--o{ SCAN_ACTIONS : "logs"
+    SCAN_HISTORY ||--o{ SCAN_TAGS : "labeled_with"
+    TAGS ||--o{ SCAN_TAGS : "applied_to"
+
+    DEVICES ||--o{ SYNC_QUEUE : "queues"
+
+    USERS {
+        uuid id PK
+        string email UK "Nullable untuk profil lokal"
+        string display_name
+        string auth_provider "local | google | apple | email"
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    DEVICES {
+        uuid id PK
+        uuid user_id FK
+        string platform "android | ios"
+        string device_name
+        string app_version
+        timestamp last_sync_at
+        timestamp created_at
+    }
+
+    FOLDERS {
+        uuid id PK
+        uuid user_id FK
+        string name
+        string color_hex
+        string icon_name
+        boolean is_deleted
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    SCAN_HISTORY {
+        uuid id PK
+        uuid user_id FK
+        uuid device_id FK
+        uuid folder_id FK "Nullable"
+        text raw_value "Isi hasil scan"
+        string content_type "url | wifi | vcard | text | product | geo"
+        string barcode_format "QR_CODE | EAN_13 | CODE_128 | DATA_MATRIX"
+        string title
+        text notes
+        boolean is_favorite
+        boolean is_deleted "Soft delete untuk sinkronisasi"
+        string sync_status "pending | synced | failed"
+        timestamp scanned_at
+        timestamp updated_at
+    }
+
+    QR_GENERATED {
+        uuid id PK
+        uuid user_id FK
+        string content_type "url | wifi | vcard | text"
+        text payload
+        string fg_color_hex
+        string bg_color_hex
+        string error_correction "L | M | Q | H"
+        boolean is_deleted
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    TAGS {
+        uuid id PK
+        uuid user_id FK
+        string name
+        string color_hex
+        timestamp created_at
+    }
+
+    SCAN_TAGS {
+        uuid scan_id PK, FK
+        uuid tag_id PK, FK
+        timestamp assigned_at
+    }
+
+    SCAN_ACTIONS {
+        uuid id PK
+        uuid scan_id FK
+        string action_type "open_url | copy | share | connect_wifi | save_contact"
+        timestamp performed_at
+    }
+
+    SYNC_QUEUE {
+        uuid id PK
+        uuid device_id FK
+        string entity_type "scan_history | folders | tags | qr_generated"
+        uuid entity_id
+        string operation "INSERT | UPDATE | DELETE"
+        text payload_json
+        int retry_count
+        string status "queued | processing | failed"
+        timestamp created_at
+    }
+```
+
+### Penjelasan Entitas & Relasi Utama
+1. **`USERS` & `DEVICES`**: Menyimpan identitas pengguna dan perangkat lokal (otomatis dibuat saat pertama kali memindai) serta siap di-upgrade ke akun cloud.
+2. **`SCAN_HISTORY`**: Tabel utama penyimpan hasil scan beserta tipe konten (`url`, `wifi`, `vcard`, `geo`, `text`), format barcode, status favorit (`is_favorite`), dan *soft delete* (`is_deleted`).
+3. **`FOLDERS`**: Mengelompokkan hasil scan ke dalam kategori (`1:N` ke `SCAN_HISTORY`).
+4. **`TAGS` & `SCAN_TAGS`**: Relasi *many-to-many* (`M:N`) dengan *Composite Primary Key* `(scan_id, tag_id)` dan aturan `ON DELETE CASCADE`.
+5. **`SCAN_ACTIONS`**: Mencatat setiap interaksi pengguna terhadap hasil scan (misalnya menyalin teks ke clipboard).
+6. **`QR_GENERATED` & `SYNC_QUEUE`**: Mendukung fitur pembuatan QR kustom dan antrean sinkronisasi *outbox pattern* ke server cloud.
 
 ---
 
-## 5. Pengujian Unit (*Unit Testing*) & GitHub Actions CI
+## 3. Roadmap Pengembangan Basis Data
 
-- **Unit Test Basis Data (`test/database_test.dart`)**:
-  - Menguji pembuatan UUID v4 otomatis dan nilai default kolom pada `ScanHistory`.
-  - Menguji operasi CRUD, *soft delete*, pencarian kata kunci, filter favorit, filter folder, dan pencatatan `ScanActions`.
-  - Menguji manajemen Folder & Tag (*many-to-many*) serta aturan `ON DELETE CASCADE` pada `ScanTags` dan `ScanActions`.
-- **Integrasi Berkelanjutan (`.github/workflows/flutter_test.yml`)**:
-  - Menambahkan workflow GitHub Actions yang otomatis menginstal `libsqlite3-dev`, menyiapkan Flutter SDK, men-generate kode Drift (`build_runner`), dan menjalankan `flutter test test/database_test.dart` di setiap `push` atau `pull_request` ke branch `main`.
+```mermaid
+flowchart LR
+    P1["Phase 1: v1.1<br/>Local Persistence<br/>(SQLite / Drift)"] --> P2["Phase 2: v1.2<br/>QR Generator,<br/>Actions & Export"]
+    P2 --> P3["Phase 3: v2.0<br/>Offline-First Sync<br/>& Cloud Postgres"]
+    P3 --> P4["Phase 4: v2.1+<br/>Encryption (SQLCipher),<br/>RLS & Archiving"]
+```
+
+- **Phase 1 (`v1.1.0`) — Selesai**: Skema lokal Drift, manajemen `ScanHistory`, `Folders`, `Tags`, `ScanTags`, pencarian kata kunci, dan filter favorit/folder.
+- **Phase 2 (`v1.2.0`) — Sebagian Selesai**: Deteksi tipe konten otomatis dan pencatatan `ScanActions` (`copy`) telah aktif; tabel `QRGenerated` sudah siap di basis data.
+- **Phase 3 (`v2.0.0`) — Siap Integrasi Cloud**: Tabel `Users`, `Devices`, dan `SyncQueue` sudah tersedia di skema lokal untuk dihubungkan ke backend PostgreSQL/Supabase.
+- **Phase 4 (`v2.1.0+`) — Enkripsi Lokal Selesai**: Enkripsi *at-rest* menggunakan **SQLCipher** (AES-256) dengan penyimpanan kunci di Android Keystore / iOS Keychain telah diimplementasikan.
 
 ---
 
-## 6. Daftar File yang Dibuat / Diperbarui
+## 4. Rincian Implementasi Fitur
+
+### A. Perombakan Dokumentasi (`README.md`)
+- Menghapus tautan GIF `gfycat.com` yang sudah mati dan memperbarui tautan dokumentasi resmi Flutter.
+- Menambahkan badge status, daftar isi, tabel *Tech Stack*, struktur direktori, ERD Mermaid, serta matriks migrasi Database Roadmap.
+
+### B. Skema Basis Data & Enkripsi (`lib/database/`)
+- **`lib/database/tables.dart`**: Definisi 9 tabel Drift dengan *mixin* `UuidPk` (UUID v4 otomatis di sisi klien) serta aturan `KeyAction.cascade`.
+- **`lib/database/database.dart`**:
+  - Membuka database menggunakan **SQLCipher** (`PRAGMA key = "x'<hexKey>'";`) dan memverifikasi `PRAGMA cipher_version;`.
+  - Mengelola kunci enkripsi 256-bit via `FlutterSecureStorage`.
+  - Menyediakan konstruktor `AppDatabase.forTesting` dan mengaktifkan `PRAGMA foreign_keys = ON`.
+
+### C. Lapisan Layanan (`lib/services/`)
+- **`lib/services/scan_service.dart`**:
+  - `insertScan`, `toggleFavorite`, `assignFolder`, `deleteScan` (*soft delete*).
+  - `searchScans` & `watchFilteredScans` untuk pencarian teks dan filter favorit/folder secara *real-time*.
+  - `logAction` & `getActionsForScan` untuk mencatat interaksi pengguna ke tabel `ScanActions`.
+- **`lib/services/folder_tag_service.dart`**:
+  - `createFolder`, `watchFolders`, `getAllFolders`, `deleteFolder` (transaksi *soft delete* + melepas `folderId` pada scan terkait).
+  - `createTag`, `getAllTags`, `assignTagToScan`, `removeTagFromScan`, `getTagsForScan`.
+
+### D. Antarmuka Pengguna (`lib/main.dart` & `lib/pages/scan_history_page.dart`)
+- Menghapus class rusak `HomePageStat` di `lib/main.dart`, menambahkan **Drawer** navigasi, serta menyimpan setiap hasil scan secara otomatis ke database.
+- Menambahkan **Search Bar**, **ChoiceChip Folder**, tombol **Filter Favorit**, tombol **Salin (Copy)** ke `Clipboard`, serta dialog **Detail Scan** untuk mengatur Folder dan Tag pada `ScanHistoryPage`.
+
+### E. Unit Testing & GitHub Actions CI (`test/database_test.dart` & `.github/workflows/flutter_test.yml`)
+- Pengujian otomatis menggunakan `NativeDatabase.memory()` untuk memverifikasi UUID v4, CRUD scan, *soft delete*, pencarian & filter, pencatatan `ScanActions`, relasi *many-to-many* `ScanTags`, dan `ON DELETE CASCADE`.
+- Pipeline GitHub Actions yang menjalankan `flutter pub get`, `build_runner`, dan `flutter test` secara otomatis di server Ubuntu setiap kali ada `push` atau `pull_request`.
+
+---
+
+## 5. Daftar File yang Dibuat / Diperbarui
 
 | Path File | Status | Fungsi Utama |
 | :--- | :--- | :--- |
@@ -87,11 +225,11 @@ Dokumen ini merangkum seluruh perbaikan, perancangan arsitektur basis data, impl
 | `lib/pages/scan_history_page.dart` | Baru | UI Riwayat Scan dengan Search Bar, Filter Chip Folder, Tag, & Copy |
 | `test/database_test.dart` | Baru | Suite unit test *in-memory* untuk tabel Drift dan lapisan *service* |
 | `.github/workflows/flutter_test.yml` | Baru | Pipeline CI otomatis untuk code-gen Drift dan eksekusi unit test |
-| `RINGKASAN_PERBAIKAN.md` | Baru | Dokumen ringkasan perbaikan proyek |
+| `RINGKASAN_PERBAIKAN.md` | Diperbarui | Dokumen ringkasan perbaikan lengkap dengan diagram Arsitektur & ERD |
 
 ---
 
-## 7. Riwayat Commit GitHub (`origin/main`)
+## 6. Riwayat Commit GitHub (`origin/main`)
 
 | Commit SHA | Pesan Commit |
 | :--- | :--- |
@@ -100,3 +238,4 @@ Dokumen ini merangkum seluruh perbaikan, perancangan arsitektur basis data, impl
 | `227c8bc` | `feat: add SQLCipher encryption, drawer navigation, and scan persistence` |
 | `19726f5` | `test: add Drift unit tests and GitHub Actions CI workflow` |
 | `4a59dd0` | `feat: add folder/tag management, search & favorite filters, and scan action logging` |
+| `a0eb144` | `docs: add RINGKASAN_PERBAIKAN.md project improvement summary` |
