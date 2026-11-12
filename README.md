@@ -67,6 +67,7 @@ QR-Scanner/
 ├── android/                  # Android native wrapper & AndroidManifest.xml
 ├── doc/                      # Technical & user documentation
 │   ├── DATABASE.md           # Data dictionary & SQLite/PostgreSQL DDL scripts
+│   ├── DOKUMENTASI_PROYEK.md # Master project documentation & architecture dossier
 │   ├── FLOWCHART.md          # System architecture & operational flowcharts
 │   ├── PANDUAN_PENGGUNAAN.md # End-user & developer usage guide
 │   └── RINGKASAN_PERBAIKAN.md# Comprehensive project improvement summary
@@ -329,6 +330,7 @@ Contributions are welcome! Please follow standard Git workflow practices:
 
 ## Resources
 
+- [Master Project Documentation (`doc/DOKUMENTASI_PROYEK.md`)](doc/DOKUMENTASI_PROYEK.md)
 - [User & Developer Guide (`doc/PANDUAN_PENGGUNAAN.md`)](doc/PANDUAN_PENGGUNAAN.md)
 - [Database Specification & DDL (`doc/DATABASE.md`)](doc/DATABASE.md)
 - [System & Operational Flowcharts (`doc/FLOWCHART.md`)](doc/FLOWCHART.md)
