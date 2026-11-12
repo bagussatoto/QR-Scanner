@@ -23,7 +23,7 @@ dependencies:
 
   # Encrypted SQLite (SQLCipher). Do NOT add sqlite3_flutter_libs together with this.
   sqlcipher_flutter_libs: ^0.6.0
-  sqlite3: ^2.1.0
+  sqlite3: ^3.0.0
 
   # Secure storage for the database encryption key (Android Keystore / iOS Keychain)
   flutter_secure_storage: ^9.0.0
