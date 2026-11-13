@@ -1,9 +1,11 @@
 // lib/pages/scanner_page.dart
 // -------------------------------------------------------------------
 // Modern camera scanner interface powered by mobile_scanner with
-// custom viewfinder overlay, flash toggle, camera switch, and instant
-// database persistence.
+// custom viewfinder overlay, flash toggle, camera switch, single scan
+// and continuous Batch Scanning mode.
 // -------------------------------------------------------------------
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutterqrscan/pages/scan_history_page.dart';
@@ -11,7 +13,12 @@ import 'package:flutterqrscan/services/scan_service.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
 class ScannerPage extends StatefulWidget {
-  const ScannerPage({Key? key}) : super(key: key);
+  final bool initialBatchMode;
+
+  const ScannerPage({
+    Key? key,
+    this.initialBatchMode = false,
+  }) : super(key: key);
 
   @override
   State<ScannerPage> createState() => _ScannerPageState();
@@ -23,12 +30,21 @@ class _ScannerPageState extends State<ScannerPage>
   late AnimationController _animController;
   late Animation<double> _scanAnimation;
 
-  bool _isProcessing = false;
+  late bool _isBatchMode;
+  bool _isProcessingSingle = false;
   String? _lastScannedValue;
+  DateTime? _lastScannedTime;
+
+  // Batch scan session list
+  final List<Map<String, dynamic>> _batchItems = [];
+  String? _transientFeedback;
+  Timer? _feedbackTimer;
 
   @override
   void initState() {
     super.initState();
+    _isBatchMode = widget.initialBatchMode;
+
     _controller = MobileScannerController(
       detectionSpeed: DetectionSpeed.normal,
       facing: CameraFacing.back,
@@ -47,6 +63,7 @@ class _ScannerPageState extends State<ScannerPage>
 
   @override
   void dispose() {
+    _feedbackTimer?.cancel();
     _animController.dispose();
     _controller.dispose();
     super.dispose();
@@ -65,8 +82,6 @@ class _ScannerPageState extends State<ScannerPage>
   }
 
   void _onDetect(BarcodeCapture capture) async {
-    if (_isProcessing) return;
-
     final barcodes = capture.barcodes;
     if (barcodes.isEmpty) return;
 
@@ -74,8 +89,64 @@ class _ScannerPageState extends State<ScannerPage>
     final rawValue = barcode.rawValue;
     if (rawValue == null || rawValue.isEmpty) return;
 
+    final now = DateTime.now();
+
+    // -------------------------------------------------------------
+    // BATCH SCAN MODE: Continuous scan with duplicate prevention
+    // -------------------------------------------------------------
+    if (_isBatchMode) {
+      if (_lastScannedValue == rawValue &&
+          _lastScannedTime != null &&
+          now.difference(_lastScannedTime!).inMilliseconds < 1500) {
+        return; // debounce duplicate scan
+      }
+
+      _lastScannedValue = rawValue;
+      _lastScannedTime = now;
+
+      HapticFeedback.lightImpact();
+
+      final formatName = barcode.format.name.toUpperCase();
+      final contentType = _detectContentType(rawValue);
+
+      // Persist to encrypted local database
+      try {
+        await ScanService.instance.insertScan(
+          rawValue: rawValue,
+          barcodeFormat: formatName,
+          contentType: contentType,
+        );
+      } catch (_) {}
+
+      setState(() {
+        _batchItems.insert(0, {
+          'rawValue': rawValue,
+          'format': formatName,
+          'contentType': contentType,
+          'time': now,
+        });
+        _transientFeedback = '✓ [#${_batchItems.length}] $rawValue';
+      });
+
+      _feedbackTimer?.cancel();
+      _feedbackTimer = Timer(const Duration(seconds: 2), () {
+        if (mounted) {
+          setState(() {
+            _transientFeedback = null;
+          });
+        }
+      });
+
+      return;
+    }
+
+    // -------------------------------------------------------------
+    // SINGLE SCAN MODE: Modal presentation
+    // -------------------------------------------------------------
+    if (_isProcessingSingle) return;
+
     setState(() {
-      _isProcessing = true;
+      _isProcessingSingle = true;
       _lastScannedValue = rawValue;
     });
 
@@ -91,15 +162,13 @@ class _ScannerPageState extends State<ScannerPage>
         barcodeFormat: formatName,
         contentType: contentType,
       );
-    } catch (_) {
-      // Ignored for testing or transient db issue
-    }
+    } catch (_) {}
 
     if (!mounted) return;
-    _showResultBottomSheet(rawValue, formatName, contentType);
+    _showSingleResultBottomSheet(rawValue, formatName, contentType);
   }
 
-  void _showResultBottomSheet(
+  void _showSingleResultBottomSheet(
       String rawValue, String format, String contentType) {
     showModalBottomSheet(
       context: context,
@@ -213,7 +282,7 @@ class _ScannerPageState extends State<ScannerPage>
                       onPressed: () {
                         Navigator.of(ctx).pop();
                         setState(() {
-                          _isProcessing = false;
+                          _isProcessingSingle = false;
                         });
                       },
                     ),
@@ -230,6 +299,139 @@ class _ScannerPageState extends State<ScannerPage>
               ),
             ],
           ),
+        );
+      },
+    );
+  }
+
+  void _showBatchTrayBottomSheet() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            return Container(
+              padding: const EdgeInsets.all(16.0),
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(context).size.height * 0.7,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.dynamic_feed,
+                              color: Colors.deepOrange),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Sesi Batch (${_batchItems.length} item)',
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                      TextButton(
+                        onPressed: _batchItems.isEmpty
+                            ? null
+                            : () {
+                                final allText = _batchItems
+                                    .map((e) => e['rawValue'])
+                                    .join('\n');
+                                Clipboard.setData(ClipboardData(text: allText));
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                      content: Text(
+                                          'Semua item batch disalin ke clipboard')),
+                                );
+                              },
+                        child: const Text('Salin Semua'),
+                      ),
+                    ],
+                  ),
+                  const Divider(),
+                  if (_batchItems.isEmpty)
+                    const Expanded(
+                      child: Center(
+                        child: Text(
+                          'Belum ada barcode yang dipindai dalam sesi ini.\nArahkan kamera ke barcode untuk memindai.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: Colors.grey),
+                        ),
+                      ),
+                    )
+                  else
+                    Expanded(
+                      child: ListView.separated(
+                        itemCount: _batchItems.length,
+                        separatorBuilder: (_, __) => const Divider(height: 1),
+                        itemBuilder: (context, index) {
+                          final item = _batchItems[index];
+                          return ListTile(
+                            dense: true,
+                            leading: CircleAvatar(
+                              radius: 14,
+                              backgroundColor: Colors.deepOrange.shade100,
+                              child: Text(
+                                '${_batchItems.length - index}',
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  color: Colors.deepOrange,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                            title: Text(
+                              item['rawValue'],
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.w600),
+                            ),
+                            subtitle: Text(
+                              '${item['format']} • ${item['contentType']}',
+                              style: const TextStyle(fontSize: 11),
+                            ),
+                            trailing: IconButton(
+                              icon: const Icon(Icons.copy, size: 18),
+                              onPressed: () {
+                                Clipboard.setData(
+                                    ClipboardData(text: item['rawValue']));
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                      content: Text('Item disalin')),
+                                );
+                              },
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  const SizedBox(height: 10),
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.deepOrange,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                    onPressed: () {
+                      Navigator.of(ctx).pop();
+                    },
+                    child: const Text(
+                      'Lanjut Memindai',
+                      style: TextStyle(color: Colors.white),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
         );
       },
     );
@@ -255,7 +457,7 @@ class _ScannerPageState extends State<ScannerPage>
               final scanRect = Rect.fromCenter(
                 center: Offset(
                   constraints.maxWidth / 2,
-                  constraints.maxHeight / 2 - 30,
+                  constraints.maxHeight / 2 - 40,
                 ),
                 width: scanBoxSize,
                 height: scanBoxSize,
@@ -265,7 +467,10 @@ class _ScannerPageState extends State<ScannerPage>
                 children: [
                   CustomPaint(
                     size: Size(constraints.maxWidth, constraints.maxHeight),
-                    painter: _ViewfinderOverlayPainter(scanRect: scanRect),
+                    painter: _ViewfinderOverlayPainter(
+                      scanRect: scanRect,
+                      isBatchMode: _isBatchMode,
+                    ),
                   ),
                   // Animated laser line
                   AnimatedBuilder(
@@ -280,18 +485,27 @@ class _ScannerPageState extends State<ScannerPage>
                         height: 2.5,
                         child: Container(
                           decoration: BoxDecoration(
-                            gradient: const LinearGradient(
+                            gradient: LinearGradient(
                               colors: [
                                 Colors.transparent,
-                                Colors.deepOrangeAccent,
-                                Colors.deepOrange,
-                                Colors.deepOrangeAccent,
+                                _isBatchMode
+                                    ? Colors.amberAccent
+                                    : Colors.deepOrangeAccent,
+                                _isBatchMode
+                                    ? Colors.amber
+                                    : Colors.deepOrange,
+                                _isBatchMode
+                                    ? Colors.amberAccent
+                                    : Colors.deepOrangeAccent,
                                 Colors.transparent,
                               ],
                             ),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.deepOrange.withOpacity(0.6),
+                                color: (_isBatchMode
+                                        ? Colors.amber
+                                        : Colors.deepOrange)
+                                    .withOpacity(0.6),
                                 blurRadius: 6,
                                 spreadRadius: 1,
                               ),
@@ -306,86 +520,302 @@ class _ScannerPageState extends State<ScannerPage>
             },
           ),
 
-          // 3. Top Control Bar (Back, Flash, Switch Camera)
+          // 3. Top Control Bar & Mode Switcher
           SafeArea(
             child: Padding(
               padding:
                   const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  CircleAvatar(
-                    backgroundColor: Colors.black45,
-                    child: IconButton(
-                      icon:
-                          const Icon(Icons.arrow_back, color: Colors.white),
-                      onPressed: () =>
-                          Navigator.of(context).pop(_lastScannedValue),
-                    ),
-                  ),
                   Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      // Torch Toggle
-                      ValueListenableBuilder<TorchState>(
-                        valueListenable: _controller.torchState,
-                        builder: (context, state, child) {
-                          final isTorchOn = state == TorchState.on;
-                          return CircleAvatar(
-                            backgroundColor:
-                                isTorchOn ? Colors.deepOrange : Colors.black45,
-                            child: IconButton(
-                              icon: Icon(
-                                isTorchOn
-                                    ? Icons.flash_on
-                                    : Icons.flash_off,
-                                color: Colors.white,
-                              ),
-                              onPressed: () => _controller.toggleTorch(),
-                            ),
-                          );
-                        },
+                      CircleAvatar(
+                        backgroundColor: Colors.black45,
+                        child: IconButton(
+                          icon: const Icon(Icons.arrow_back,
+                              color: Colors.white),
+                          onPressed: () => Navigator.of(context)
+                              .pop(_lastScannedValue ??
+                                  (_batchItems.isNotEmpty
+                                      ? '${_batchItems.length} item tersimpan'
+                                      : null)),
+                        ),
                       ),
-                      const SizedBox(width: 10),
-                      // Camera Switch Toggle
-                      ValueListenableBuilder<CameraFacing>(
-                        valueListenable: _controller.cameraFacingState,
-                        builder: (context, state, child) {
-                          return CircleAvatar(
-                            backgroundColor: Colors.black45,
-                            child: IconButton(
-                              icon: const Icon(Icons.cameraswitch,
-                                  color: Colors.white),
-                              onPressed: () => _controller.switchCamera(),
+
+                      // Segmented Mode Switcher (Standar vs Batch)
+                      Container(
+                        padding: const EdgeInsets.all(3),
+                        decoration: BoxDecoration(
+                          color: Colors.black54,
+                          borderRadius: BorderRadius.circular(24),
+                          border: Border.all(color: Colors.white24),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            GestureDetector(
+                              onTap: () {
+                                setState(() {
+                                  _isBatchMode = false;
+                                  _isProcessingSingle = false;
+                                });
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: !_isBatchMode
+                                      ? Colors.deepOrange
+                                      : Colors.transparent,
+                                  borderRadius: BorderRadius.circular(18),
+                                ),
+                                child: Row(
+                                  children: const [
+                                    Icon(Icons.qr_code,
+                                        size: 14, color: Colors.white),
+                                    SizedBox(width: 4),
+                                    Text('Standar',
+                                        style: TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.bold)),
+                                  ],
+                                ),
+                              ),
                             ),
-                          );
-                        },
+                            GestureDetector(
+                              onTap: () {
+                                setState(() {
+                                  _isBatchMode = true;
+                                });
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: _isBatchMode
+                                      ? Colors.amber.shade700
+                                      : Colors.transparent,
+                                  borderRadius: BorderRadius.circular(18),
+                                ),
+                                child: Row(
+                                  children: [
+                                    const Icon(Icons.dynamic_feed,
+                                        size: 14, color: Colors.white),
+                                    const SizedBox(width: 4),
+                                    const Text('Batch',
+                                        style: TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.bold)),
+                                    if (_batchItems.isNotEmpty) ...[
+                                      const SizedBox(width: 4),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 5, vertical: 1),
+                                        decoration: BoxDecoration(
+                                          color: Colors.black45,
+                                          borderRadius:
+                                              BorderRadius.circular(10),
+                                        ),
+                                        child: Text(
+                                          '${_batchItems.length}',
+                                          style: const TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.bold),
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      Row(
+                        children: [
+                          // Torch Toggle
+                          ValueListenableBuilder<TorchState>(
+                            valueListenable: _controller.torchState,
+                            builder: (context, state, child) {
+                              final isTorchOn = state == TorchState.on;
+                              return CircleAvatar(
+                                backgroundColor: isTorchOn
+                                    ? Colors.deepOrange
+                                    : Colors.black45,
+                                child: IconButton(
+                                  icon: Icon(
+                                    isTorchOn
+                                        ? Icons.flash_on
+                                        : Icons.flash_off,
+                                    color: Colors.white,
+                                  ),
+                                  onPressed: () => _controller.toggleTorch(),
+                                ),
+                              );
+                            },
+                          ),
+                          const SizedBox(width: 8),
+                          // Camera Switch Toggle
+                          ValueListenableBuilder<CameraFacing>(
+                            valueListenable: _controller.cameraFacingState,
+                            builder: (context, state, child) {
+                              return CircleAvatar(
+                                backgroundColor: Colors.black45,
+                                child: IconButton(
+                                  icon: const Icon(Icons.cameraswitch,
+                                      color: Colors.white),
+                                  onPressed: () => _controller.switchCamera(),
+                                ),
+                              );
+                            },
+                          ),
+                        ],
                       ),
                     ],
                   ),
+
+                  // Transient feedback badge
+                  if (_transientFeedback != null) ...[
+                    const SizedBox(height: 10),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.green.shade700,
+                        borderRadius: BorderRadius.circular(20),
+                        boxShadow: const [
+                          BoxShadow(
+                            color: Colors.black45,
+                            blurRadius: 8,
+                            offset: Offset(0, 3),
+                          ),
+                        ],
+                      ),
+                      child: Text(
+                        _transientFeedback!,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
           ),
 
-          // 4. Bottom Hint Label
+          // 4. Bottom Control Bar (Batch Tray or Single Mode Hint)
           Positioned(
-            left: 0,
-            right: 0,
-            bottom: 40,
-            child: Center(
-              child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                decoration: BoxDecoration(
-                  color: Colors.black54,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: const Text(
-                  'Arahkan kamera ke QR Code atau Barcode',
-                  style: TextStyle(color: Colors.white70, fontSize: 13),
-                ),
-              ),
-            ),
+            left: 16,
+            right: 16,
+            bottom: 24,
+            child: _isBatchMode
+                ? Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: Colors.black87,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.amber.shade600),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Colors.black54,
+                          blurRadius: 10,
+                          offset: Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        GestureDetector(
+                          onTap: _showBatchTrayBottomSheet,
+                          child: Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: Colors.amber.shade700,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Text(
+                                  '${_batchItems.length}',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
+                                children: const [
+                                  Text(
+                                    'Mode Batch Aktif',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                  Text(
+                                    'Ketuk untuk lihat daftar',
+                                    style: TextStyle(
+                                      color: Colors.white70,
+                                      fontSize: 11,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                        ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.deepOrange,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 10),
+                          ),
+                          icon: const Icon(Icons.check, size: 18),
+                          label: const Text('Selesai'),
+                          onPressed: () {
+                            Navigator.of(context).pop(
+                              _batchItems.isNotEmpty
+                                  ? '${_batchItems.length} item terpindai dalam sesi batch'
+                                  : null,
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+                  )
+                : Center(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.black54,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: const Text(
+                        'Arahkan kamera ke QR Code atau Barcode',
+                        style: TextStyle(color: Colors.white70, fontSize: 13),
+                      ),
+                    ),
+                  ),
           ),
         ],
       ),
@@ -396,8 +826,12 @@ class _ScannerPageState extends State<ScannerPage>
 /// Custom painter that dims the surrounding area and highlights the central viewfinder.
 class _ViewfinderOverlayPainter extends CustomPainter {
   final Rect scanRect;
+  final bool isBatchMode;
 
-  _ViewfinderOverlayPainter({required this.scanRect});
+  _ViewfinderOverlayPainter({
+    required this.scanRect,
+    this.isBatchMode = false,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -411,7 +845,7 @@ class _ViewfinderOverlayPainter extends CustomPainter {
       ..strokeWidth = 1.5;
 
     final cornerPaint = Paint()
-      ..color = Colors.deepOrange
+      ..color = isBatchMode ? Colors.amber : Colors.deepOrange
       ..style = PaintingStyle.stroke
       ..strokeWidth = 4.0
       ..strokeCap = StrokeCap.round;
@@ -455,6 +889,7 @@ class _ViewfinderOverlayPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _ViewfinderOverlayPainter oldDelegate) {
-    return oldDelegate.scanRect != scanRect;
+    return oldDelegate.scanRect != scanRect ||
+        oldDelegate.isBatchMode != isBatchMode;
   }
 }

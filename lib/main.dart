@@ -32,6 +32,19 @@ class HomePageState extends State<HomePage> {
     }
   }
 
+  Future<void> _scanBatch() async {
+    final scanned = await Navigator.of(context).push<String>(
+      MaterialPageRoute(
+        builder: (_) => const ScannerPage(initialBatchMode: true),
+      ),
+    );
+    if (scanned != null && scanned.isNotEmpty) {
+      setState(() {
+        result = scanned;
+      });
+    }
+  }
+
   void _openHistory() {
     Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => const ScanHistoryPage()),
@@ -52,6 +65,11 @@ class HomePageState extends State<HomePage> {
         backgroundColor: Colors.deepOrange,
         foregroundColor: Colors.white,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.dynamic_feed),
+            tooltip: 'Batch Scan (Berkelanjutan)',
+            onPressed: _scanBatch,
+          ),
           IconButton(
             icon: const Icon(Icons.qr_code_2),
             tooltip: 'Buat QR Code',
@@ -98,6 +116,15 @@ class HomePageState extends State<HomePage> {
               onTap: () {
                 Navigator.of(context).pop();
                 _scanQR();
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.dynamic_feed, color: Colors.amber),
+              title: const Text('Batch Scanner (Berkelanjutan)'),
+              subtitle: const Text('Pindai banyak barcode tanpa henti'),
+              onTap: () {
+                Navigator.of(context).pop();
+                _scanBatch();
               },
             ),
             ListTile(
@@ -179,6 +206,17 @@ class HomePageState extends State<HomePage> {
                     fontWeight: FontWeight.w500,
                   ),
                 ),
+              ),
+              const SizedBox(height: 24),
+              OutlinedButton.icon(
+                icon: const Icon(Icons.dynamic_feed, color: Colors.deepOrange),
+                label: const Text('Mulai Mode Batch Scan'),
+                style: OutlinedButton.styleFrom(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  side: const BorderSide(color: Colors.deepOrange),
+                ),
+                onPressed: _scanBatch,
               ),
             ],
           ),

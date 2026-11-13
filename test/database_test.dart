@@ -288,4 +288,31 @@ void main() {
       expect(rawRows.single.isDeleted, isTrue);
     });
   });
+
+  group('Batch Scanning & High Volume Scan Handling', () {
+    test(
+        'handles continuous sequential batch insertions and preserves chronological order',
+        () async {
+      final batchPayloads = [
+        'BARCODE-ITEM-001',
+        'BARCODE-ITEM-002',
+        'BARCODE-ITEM-003',
+        'BARCODE-ITEM-004',
+        'BARCODE-ITEM-005',
+      ];
+
+      for (final code in batchPayloads) {
+        await scanService.insertScan(
+          rawValue: code,
+          barcodeFormat: 'CODE_128',
+          contentType: 'product',
+        );
+      }
+
+      final allScans = await scanService.fetchAllScans();
+      expect(allScans, hasLength(5));
+      expect(allScans.first.rawValue, equals('BARCODE-ITEM-005'));
+      expect(allScans.last.rawValue, equals('BARCODE-ITEM-001'));
+    });
+  });
 }
