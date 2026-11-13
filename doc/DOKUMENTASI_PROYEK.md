@@ -381,7 +381,7 @@ Workflow GitHub Actions ([.github/workflows/flutter_test.yml](../.github/workflo
 | Fase | Target | Fokus Pengembangan | Status |
 | :--- | :--- | :--- | :--- |
 | **Fase 1** | `v1.1.0` | Skema basis data lokal Drift, operasi CRUD scan, folder, tag, pencarian, dan filter favorit. | **Selesai (100%)** |
-| **Fase 2** | `v1.2.0` | Modernisasi pemindai kamera (`mobile_scanner` dengan viewfinder overlay, flash & flip camera), mode pemindaian berkelanjutan (**Batch Scanning**), serta generator QR code (`qr_flutter`). | **Selesai (100%)** |
+| **Fase 2** | `v1.2.0` | Modernisasi pemindai kamera (`mobile_scanner` dengan viewfinder & kontrol flash/flip), mode **Batch Scanning**, pembuatan QR code (`qr_flutter`), serta **Dashboard Statistik & Analisis Scan** (`AnalyticsService`). | **Selesai (100%)** |
 | **Fase 3** | `v2.0.0` | Sinkronisasi *offline-first* ke server cloud (PostgreSQL / Supabase) menggunakan tabel `SYNC_QUEUE` (*outbox pattern*), autentikasi akun pengguna, dan Row-Level Security (RLS). | **Tabel Siap di Skema** |
 | **Fase 4** | `v2.1.0+` | Enkripsi *at-rest* SQLCipher AES-256, kebijakan retensi arsip otomatis, dan optimasi performa skala besar. | **Enkripsi Lokal Selesai** |
 

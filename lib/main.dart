@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutterqrscan/pages/analytics_page.dart';
 import 'package:flutterqrscan/pages/qr_generator_page.dart';
 import 'package:flutterqrscan/pages/scan_history_page.dart';
 import 'package:flutterqrscan/pages/scanner_page.dart';
@@ -57,6 +58,12 @@ class HomePageState extends State<HomePage> {
     );
   }
 
+  void _openAnalytics() {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const AnalyticsPage()),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -65,6 +72,11 @@ class HomePageState extends State<HomePage> {
         backgroundColor: Colors.deepOrange,
         foregroundColor: Colors.white,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.bar_chart),
+            tooltip: 'Statistik & Analisis',
+            onPressed: _openAnalytics,
+          ),
           IconButton(
             icon: const Icon(Icons.dynamic_feed),
             tooltip: 'Batch Scan (Berkelanjutan)',
@@ -145,6 +157,15 @@ class HomePageState extends State<HomePage> {
                 _openHistory();
               },
             ),
+            ListTile(
+              leading: const Icon(Icons.bar_chart, color: Colors.blue),
+              title: const Text('Statistik & Analisis'),
+              subtitle: const Text('Ringkasan data & distribusi kategori'),
+              onTap: () {
+                Navigator.of(context).pop();
+                _openAnalytics();
+              },
+            ),
             const Divider(),
             const AboutListTile(
               icon: Icon(Icons.info_outline),
@@ -208,15 +229,28 @@ class HomePageState extends State<HomePage> {
                 ),
               ),
               const SizedBox(height: 24),
-              OutlinedButton.icon(
-                icon: const Icon(Icons.dynamic_feed, color: Colors.deepOrange),
-                label: const Text('Mulai Mode Batch Scan'),
-                style: OutlinedButton.styleFrom(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                  side: const BorderSide(color: Colors.deepOrange),
-                ),
-                onPressed: _scanBatch,
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  OutlinedButton.icon(
+                    icon:
+                        const Icon(Icons.dynamic_feed, color: Colors.deepOrange),
+                    label: const Text('Mode Batch'),
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: Colors.deepOrange),
+                    ),
+                    onPressed: _scanBatch,
+                  ),
+                  const SizedBox(width: 12),
+                  OutlinedButton.icon(
+                    icon: const Icon(Icons.bar_chart, color: Colors.blue),
+                    label: const Text('Statistik'),
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: Colors.blue),
+                    ),
+                    onPressed: _openAnalytics,
+                  ),
+                ],
               ),
             ],
           ),

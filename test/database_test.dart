@@ -7,6 +7,7 @@
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutterqrscan/database/database.dart';
+import 'package:flutterqrscan/services/analytics_service.dart';
 import 'package:flutterqrscan/services/folder_tag_service.dart';
 import 'package:flutterqrscan/services/qr_generator_service.dart';
 import 'package:flutterqrscan/services/scan_service.dart';
@@ -16,12 +17,19 @@ void main() {
   late ScanService scanService;
   late FolderTagService folderTagService;
   late QRGeneratorService qrService;
+  late AnalyticsService analyticsService;
 
   setUp(() {
     db = AppDatabase.forTesting(NativeDatabase.memory());
     scanService = ScanService.forTesting(db);
     folderTagService = FolderTagService.forTesting(db, scanService);
     qrService = QRGeneratorService.forTesting(db, scanService);
+    analyticsService = AnalyticsService.forTesting(
+      db,
+      scanService: scanService,
+      qrService: qrService,
+      folderTagService: folderTagService,
+    );
   });
 
   tearDown(() async {
@@ -313,6 +321,69 @@ void main() {
       expect(allScans, hasLength(5));
       expect(allScans.first.rawValue, equals('BARCODE-ITEM-005'));
       expect(allScans.last.rawValue, equals('BARCODE-ITEM-001'));
+    });
+  });
+
+  group('AnalyticsService Aggregation & Reporting', () {
+    test('computes aggregated counts, category breakdown and summary text',
+        () async {
+      // 1. Create folders & tags
+      await folderTagService.createFolder(name: 'Inventory');
+      await folderTagService.createTag(name: 'Urgent');
+
+      // 2. Insert scans
+      final s1 = await scanService.insertScan(
+        rawValue: 'https://flutter.dev',
+        barcodeFormat: 'QR_CODE',
+        contentType: 'url',
+      );
+      await scanService.toggleFavorite(s1);
+
+      await scanService.insertScan(
+        rawValue: 'WIFI:S:Office;T:WPA;P:pass;;',
+        barcodeFormat: 'QR_CODE',
+        contentType: 'wifi',
+      );
+
+      await scanService.insertScan(
+        rawValue: '8999999123456',
+        barcodeFormat: 'EAN_13',
+        contentType: 'product',
+      );
+
+      // 3. Insert generated QRs
+      await qrService.insertGeneratedQR(
+        payload: 'https://example.com/qr1',
+        contentType: 'url',
+      );
+      await qrService.insertGeneratedQR(
+        payload: 'My Wi-Fi Network',
+        contentType: 'wifi',
+      );
+
+      // 4. Run analytics report
+      final report = await analyticsService.getReport();
+
+      expect(report.totalScans, equals(3));
+      expect(report.totalFavorites, equals(1));
+      expect(report.totalGeneratedQRs, equals(2));
+      expect(report.totalFolders, equals(1));
+      expect(report.totalTags, equals(1));
+      expect(report.scansToday, equals(3));
+      expect(report.scansThisWeek, equals(3));
+
+      expect(report.contentTypeCounts['url'], equals(1));
+      expect(report.contentTypeCounts['wifi'], equals(1));
+      expect(report.contentTypeCounts['product'], equals(1));
+
+      expect(report.formatCounts['QR_CODE'], equals(2));
+      expect(report.formatCounts['EAN_13'], equals(1));
+
+      final summary = report.toSummaryText();
+      expect(summary, contains('LAPORAN STATISTIK QR-SCANNER'));
+      expect(summary, contains('Total Pemindaian: 3 item'));
+      expect(summary, contains('Kode QR Favorit: 1 item'));
+      expect(summary, contains('URL: 1'));
     });
   });
 }
