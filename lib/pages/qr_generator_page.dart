@@ -467,3 +467,4 @@ class _QRGeneratorPageState extends State<QRGeneratorPage>
     );
   }
 }
+

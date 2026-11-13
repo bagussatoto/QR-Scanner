@@ -70,3 +70,4 @@ class QRGeneratorService {
     return (_db.delete(_db.qRGenerated)..where((t) => t.id.equals(id))).go();
   }
 }
+
