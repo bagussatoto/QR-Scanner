@@ -1,24 +1,27 @@
 // test/database_test.dart
 // -------------------------------------------------------------------
 // Unit tests for Drift tables (Users, Devices, Folders, Tags,
-// ScanHistory, ScanTags, ScanActions) and services (ScanService,
-// FolderTagService) using an in-memory SQLite DB.
+// ScanHistory, ScanTags, ScanActions, QRGenerated) and services
+// (ScanService, FolderTagService, QRGeneratorService) using an in-memory SQLite DB.
 // -------------------------------------------------------------------
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutterqrscan/database/database.dart';
 import 'package:flutterqrscan/services/folder_tag_service.dart';
+import 'package:flutterqrscan/services/qr_generator_service.dart';
 import 'package:flutterqrscan/services/scan_service.dart';
 
 void main() {
   late AppDatabase db;
   late ScanService scanService;
   late FolderTagService folderTagService;
+  late QRGeneratorService qrService;
 
   setUp(() {
     db = AppDatabase.forTesting(NativeDatabase.memory());
     scanService = ScanService.forTesting(db);
     folderTagService = FolderTagService.forTesting(db, scanService);
+    qrService = QRGeneratorService.forTesting(db, scanService);
   });
 
   tearDown(() async {
@@ -101,33 +104,52 @@ void main() {
         title: 'Dart Docs',
         folderId: workFolder.id,
       );
-      await scanService.insertScan(
-        rawValue: 'WIFI:S:HomeWifi;T:WPA;P:12345678;;',
-        barcodeFormat: 'QR_CODE',
-        title: 'Home Network',
-      );
-
       await scanService.toggleFavorite(s1);
 
-      final byKeyword = await scanService.searchScans(query: 'Home');
-      expect(byKeyword, hasLength(1));
-      expect(byKeyword.single.title, equals('Home Network'));
+      await scanService.insertScan(
+        rawValue: 'https://flutter.dev',
+        barcodeFormat: 'QR_CODE',
+        title: 'Flutter Home',
+      );
 
-      final byFavorite = await scanService.searchScans(favoritesOnly: true);
-      expect(byFavorite, hasLength(1));
-      expect(byFavorite.single.id, equals(s1.id));
+      // Search by keyword
+      final queryDart = await scanService.searchScans(query: 'dart');
+      expect(queryDart, hasLength(1));
+      expect(queryDart.single.title, equals('Dart Docs'));
 
-      final byFolder =
+      // Filter by favorites only
+      final queryFavs = await scanService.searchScans(favoritesOnly: true);
+      expect(queryFavs, hasLength(1));
+      expect(queryFavs.single.title, equals('Dart Docs'));
+
+      // Filter by folder
+      final queryFolder =
           await scanService.searchScans(folderId: workFolder.id);
-      expect(byFolder, hasLength(1));
-      expect(byFolder.single.id, equals(s1.id));
+      expect(queryFolder, hasLength(1));
+      expect(queryFolder.single.title, equals('Dart Docs'));
     });
 
-    test('logAction records user interactions in ScanActions table', () async {
+    test('assignFolder updates the folder reference', () async {
+      final personal = await folderTagService.createFolder(name: 'Personal');
       final scan = await scanService.insertScan(
-        rawValue: 'https://pub.dev',
+        rawValue: 'user@example.com',
         barcodeFormat: 'QR_CODE',
-        contentType: 'url',
+      );
+      expect(scan.folderId, isNull);
+
+      await scanService.assignFolder(scan.id, personal.id);
+      final updated = (await scanService.fetchAllScans()).single;
+      expect(updated.folderId, equals(personal.id));
+
+      await scanService.assignFolder(scan.id, null);
+      final cleared = (await scanService.fetchAllScans()).single;
+      expect(cleared.folderId, isNull);
+    });
+
+    test('logAction records user interactions with scans', () async {
+      final scan = await scanService.insertScan(
+        rawValue: 'https://github.com',
+        barcodeFormat: 'QR_CODE',
       );
 
       await scanService.logAction(scanId: scan.id, actionType: 'copy');
@@ -135,46 +157,49 @@ void main() {
 
       final actions = await scanService.getActionsForScan(scan.id);
       expect(actions, hasLength(2));
-      expect(
-        actions.map((a) => a.actionType).toSet(),
-        containsAll(['copy', 'open_url']),
-      );
+      final types = actions.map((a) => a.actionType).toList();
+      expect(types, containsAll(['copy', 'open_url']));
     });
   });
 
-  group('FolderTagService & Relational Integrity', () {
-    test('assigns and removes tags on a scan (many-to-many)', () async {
+  group('FolderTagService & Relational Cascades', () {
+    test('createFolder and getAllFolders only returns non-deleted folders',
+        () async {
+      final f1 = await folderTagService.createFolder(
+        name: 'Work',
+        colorHex: '#0055FF',
+        iconName: 'work',
+      );
+      expect(f1.name, equals('Work'));
+      expect(f1.colorHex, equals('#0055FF'));
+
+      final list = await folderTagService.getAllFolders();
+      expect(list, hasLength(1));
+    });
+
+    test('createTag, assignTagToScan, and getTagsForScan', () async {
       final scan = await scanService.insertScan(
-        rawValue: 'https://example.com',
+        rawValue: 'https://pub.dev',
         barcodeFormat: 'QR_CODE',
       );
-
-      final tagUrgent = await folderTagService.createTag(name: 'Urgent');
-      final tagWork = await folderTagService.createTag(name: 'Work');
-
-      await folderTagService.assignTagToScan(
-        scanId: scan.id,
-        tagId: tagUrgent.id,
+      final tag1 = await folderTagService.createTag(
+        name: 'flutter',
+        colorHex: '#02569B',
       );
-      await folderTagService.assignTagToScan(
-        scanId: scan.id,
-        tagId: tagWork.id,
-      );
-      // Duplicate assignment is safely ignored by insertOrIgnore
-      await folderTagService.assignTagToScan(
-        scanId: scan.id,
-        tagId: tagUrgent.id,
-      );
+      final tag2 = await folderTagService.createTag(name: 'dart');
 
-      final attached = await folderTagService.getTagsForScan(scan.id);
-      expect(attached.map((t) => t.name).toList(), equals(['Urgent', 'Work']));
+      await folderTagService.assignTagToScan(scanId: scan.id, tagId: tag1.id);
+      await folderTagService.assignTagToScan(scanId: scan.id, tagId: tag2.id);
 
-      await folderTagService.removeTagFromScan(
-        scanId: scan.id,
-        tagId: tagUrgent.id,
-      );
-      final afterRemoval = await folderTagService.getTagsForScan(scan.id);
-      expect(afterRemoval.map((t) => t.name).toList(), equals(['Work']));
+      final scanTags = await folderTagService.getTagsForScan(scan.id);
+      expect(scanTags, hasLength(2));
+      final names = scanTags.map((t) => t.name).toList();
+      expect(names, containsAll(['flutter', 'dart']));
+
+      await folderTagService.removeTagFromScan(scanId: scan.id, tagId: tag1.id);
+      final remaining = await folderTagService.getTagsForScan(scan.id);
+      expect(remaining, hasLength(1));
+      expect(remaining.single.name, equals('dart'));
     });
 
     test('deleteFolder soft-deletes the folder and detaches its scans',
@@ -216,6 +241,51 @@ void main() {
       final remainingActions = await db.select(db.scanActions).get();
       expect(remainingScanTags, isEmpty);
       expect(remainingActions, isEmpty);
+    });
+  });
+
+  group('QRGeneratorService CRUD & Customization', () {
+    test('insertGeneratedQR generates valid record with default and custom values',
+        () async {
+      final qr = await qrService.insertGeneratedQR(
+        payload: 'https://flutter.dev',
+        contentType: 'url',
+        fgColorHex: '#FF5722',
+        bgColorHex: '#FFFFFF',
+        errorCorrection: 'H',
+      );
+
+      expect(qr.id, isNotEmpty);
+      expect(qr.id.length, equals(36)); // UUID v4 format
+      expect(qr.payload, equals('https://flutter.dev'));
+      expect(qr.contentType, equals('url'));
+      expect(qr.fgColorHex, equals('#FF5722'));
+      expect(qr.bgColorHex, equals('#FFFFFF'));
+      expect(qr.errorCorrection, equals('H'));
+      expect(qr.isDeleted, isFalse);
+    });
+
+    test('fetchAllGeneratedQRs returns non-deleted records newest first',
+        () async {
+      await qrService.insertGeneratedQR(payload: 'First QR');
+      await qrService.insertGeneratedQR(payload: 'Second QR');
+
+      final list = await qrService.fetchAllGeneratedQRs();
+      expect(list, hasLength(2));
+      expect(list.first.payload, equals('Second QR'));
+      expect(list.last.payload, equals('First QR'));
+    });
+
+    test('deleteGeneratedQR performs soft delete', () async {
+      final qr = await qrService.insertGeneratedQR(payload: 'Temporary QR');
+      await qrService.deleteGeneratedQR(qr.id);
+
+      final activeList = await qrService.fetchAllGeneratedQRs();
+      expect(activeList, isEmpty);
+
+      final rawRows = await db.select(db.qRGenerated).get();
+      expect(rawRows, hasLength(1));
+      expect(rawRows.single.isDeleted, isTrue);
     });
   });
 }

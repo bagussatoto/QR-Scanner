@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:barcode_scan/barcode_scan.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutterqrscan/pages/qr_generator_page.dart';
 import 'package:flutterqrscan/pages/scan_history_page.dart';
 import 'package:flutterqrscan/services/scan_service.dart';
 
@@ -68,6 +69,12 @@ class HomePageState extends State<HomePage> {
     );
   }
 
+  void _openGenerator() {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const QRGeneratorPage()),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -75,6 +82,11 @@ class HomePageState extends State<HomePage> {
         title: const Text("QR Scanner"),
         backgroundColor: Colors.deepOrange,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.qr_code_2),
+            tooltip: 'Buat QR Code',
+            onPressed: _openGenerator,
+          ),
           IconButton(
             icon: const Icon(Icons.history),
             tooltip: 'Riwayat Scan',
@@ -92,6 +104,21 @@ class HomePageState extends State<HomePage> {
                 'QR-Scanner',
                 style: TextStyle(color: Colors.white, fontSize: 24),
               ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.camera_alt),
+              title: const Text('Scanner Kamera'),
+              onTap: () {
+                Navigator.of(context).pop();
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.qr_code_2),
+              title: const Text('Buat QR Code'),
+              onTap: () {
+                Navigator.of(context).pop();
+                _openGenerator();
+              },
             ),
             ListTile(
               leading: const Icon(Icons.history),

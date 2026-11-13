@@ -59,6 +59,18 @@ class AppDatabase extends _$AppDatabase {
         ..where((t) => t.isDeleted.equals(false))
         ..orderBy([(t) => OrderingTerm.desc(t.scannedAt)]))
       .get();
+
+  /// Live stream of non-deleted generated QR codes, newest first.
+  Stream<List<QRGeneratedData>> watchGeneratedQRs() => (select(qRGenerated)
+        ..where((t) => t.isDeleted.equals(false))
+        ..orderBy([(t) => OrderingTerm.desc(t.createdAt)]))
+      .watch();
+
+  /// One-shot fetch of non-deleted generated QR codes, newest first.
+  Future<List<QRGeneratedData>> getAllGeneratedQRs() => (select(qRGenerated)
+        ..where((t) => t.isDeleted.equals(false))
+        ..orderBy([(t) => OrderingTerm.desc(t.createdAt)]))
+      .get();
 }
 
 // -------------------------------------------------------------------
