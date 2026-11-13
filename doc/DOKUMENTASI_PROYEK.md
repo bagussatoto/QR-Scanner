@@ -381,7 +381,7 @@ Workflow GitHub Actions ([.github/workflows/flutter_test.yml](../.github/workflo
 | Fase | Target | Fokus Pengembangan | Status |
 | :--- | :--- | :--- | :--- |
 | **Fase 1** | `v1.1.0` | Skema basis data lokal Drift, operasi CRUD scan, folder, tag, pencarian, dan filter favorit. | **Selesai (100%)** |
-| **Fase 2** | `v1.2.0` | Fitur pembuatan QR code (*generator*) dengan tabel `QR_GENERATED` dan antarmuka kustomisasi warna & koreksi eror (`qr_flutter`). | **Selesai (100%)** |
+| **Fase 2** | `v1.2.0` | Modernisasi pemindai kamera (`mobile_scanner` dengan viewfinder overlay, flash & flip camera), pembuatan QR code (`qr_flutter`), dan antarmuka kustomisasi warna & koreksi eror. | **Selesai (100%)** |
 | **Fase 3** | `v2.0.0` | Sinkronisasi *offline-first* ke server cloud (PostgreSQL / Supabase) menggunakan tabel `SYNC_QUEUE` (*outbox pattern*), autentikasi akun pengguna, dan Row-Level Security (RLS). | **Tabel Siap di Skema** |
 | **Fase 4** | `v2.1.0+` | Enkripsi *at-rest* SQLCipher AES-256, kebijakan retensi arsip otomatis, dan optimasi performa skala besar. | **Enkripsi Lokal Selesai** |
 
@@ -434,8 +434,8 @@ Pengembangan arsitektur, basis data, keamanan, dan fungsionalitas aplikasi ini m
   Tautan: [https://datatracker.ietf.org/doc/html/rfc6350](https://datatracker.ietf.org/doc/html/rfc6350)
 - **ZXing Barcode Format & Wi-Fi URI Scheme**: Spesifikasi sintaks decoding untuk barcode 1D/2D dan payload Wi-Fi (`WIFI:S:...;T:...;P:...;;`).  
   Tautan: [https://github.com/zxing/zxing/wiki/Barcode-Contents](https://github.com/zxing/zxing/wiki/Barcode-Contents)
-- **Flutter `barcode_scan` Package**: Pustaka penangkap barcode kamera platform native Android dan iOS pada Flutter.  
-  Tautan: [https://pub.dev/packages/barcode_scan](https://pub.dev/packages/barcode_scan)
+- **Flutter `mobile_scanner` Package**: Pustaka pemindai barcode & QR code modern berbasis Google ML Kit dengan kontrol kamera fleksibel (flash/torch, pergantian kamera depan/belakang, dan viewfinder kustom).  
+  Tautan: [https://pub.dev/packages/mobile_scanner](https://pub.dev/packages/mobile_scanner)
 
 ### 11.5 Pola Desain Perangkat Lunak (*Software Architecture Patterns*)
 - **Martin Fowler — Clean Architecture & Presentation-Domain-Data Layering**: Panduan pola arsitektur pemisahan tanggung jawab antarmuka pengguna, layanan aplikasi, dan penyimpanan data.  

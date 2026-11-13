@@ -1,14 +1,15 @@
-import 'dart:async';
-
-import 'package:barcode_scan/barcode_scan.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutterqrscan/pages/qr_generator_page.dart';
 import 'package:flutterqrscan/pages/scan_history_page.dart';
-import 'package:flutterqrscan/services/scan_service.dart';
+import 'package:flutterqrscan/pages/scanner_page.dart';
 
 void main() => runApp(MaterialApp(
       debugShowCheckedModeBanner: false,
+      title: 'QR-Scanner',
+      theme: ThemeData(
+        useMaterial3: true,
+        colorSchemeSeed: Colors.deepOrange,
+      ),
       home: HomePage(),
     ));
 
@@ -18,47 +19,15 @@ class HomePage extends StatefulWidget {
 }
 
 class HomePageState extends State<HomePage> {
-  String result = "Hey there !";
-
-  String _detectContentType(String value) {
-    final trimmed = value.trim();
-    if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
-      return 'url';
-    }
-    if (trimmed.startsWith('WIFI:')) return 'wifi';
-    if (trimmed.startsWith('BEGIN:VCARD')) return 'vcard';
-    if (trimmed.startsWith('geo:')) return 'geo';
-    return 'text';
-  }
+  String result = "Tekan tombol Scan di bawah untuk memulai pemindaian kamera.";
 
   Future<void> _scanQR() async {
-    try {
-      final String qrResult = await BarcodeScanner.scan();
+    final scanned = await Navigator.of(context).push<String>(
+      MaterialPageRoute(builder: (_) => const ScannerPage()),
+    );
+    if (scanned != null && scanned.isNotEmpty) {
       setState(() {
-        result = qrResult;
-      });
-      await ScanService.instance.insertScan(
-        rawValue: qrResult,
-        barcodeFormat: 'QR_CODE',
-        contentType: _detectContentType(qrResult),
-      );
-    } on PlatformException catch (ex) {
-      if (ex.code == BarcodeScanner.CameraAccessDenied) {
-        setState(() {
-          result = "Camera permission was denied";
-        });
-      } else {
-        setState(() {
-          result = "Unknown Error $ex";
-        });
-      }
-    } on FormatException {
-      setState(() {
-        result = "You pressed the back button before scanning anything";
-      });
-    } catch (ex) {
-      setState(() {
-        result = "Unknown Error $ex";
+        result = scanned;
       });
     }
   }
@@ -81,6 +50,7 @@ class HomePageState extends State<HomePage> {
       appBar: AppBar(
         title: const Text("QR Scanner"),
         backgroundColor: Colors.deepOrange,
+        foregroundColor: Colors.white,
         actions: [
           IconButton(
             icon: const Icon(Icons.qr_code_2),
@@ -98,23 +68,42 @@ class HomePageState extends State<HomePage> {
         child: ListView(
           padding: EdgeInsets.zero,
           children: <Widget>[
-            const DrawerHeader(
-              decoration: BoxDecoration(color: Colors.deepOrange),
-              child: Text(
-                'QR-Scanner',
-                style: TextStyle(color: Colors.white, fontSize: 24),
+            DrawerHeader(
+              decoration: const BoxDecoration(color: Colors.deepOrange),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: const [
+                  Icon(Icons.qr_code_scanner, size: 48, color: Colors.white),
+                  SizedBox(height: 8),
+                  Text(
+                    'QR & Barcode Scanner',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  Text(
+                    'Offline & Encrypted SQLite',
+                    style: TextStyle(color: Colors.white70, fontSize: 12),
+                  ),
+                ],
               ),
             ),
             ListTile(
               leading: const Icon(Icons.camera_alt),
               title: const Text('Scanner Kamera'),
+              subtitle: const Text('Pemindai modern dengan viewfinder'),
               onTap: () {
                 Navigator.of(context).pop();
+                _scanQR();
               },
             ),
             ListTile(
               leading: const Icon(Icons.qr_code_2),
               title: const Text('Buat QR Code'),
+              subtitle: const Text('Generator dengan kustomisasi warna'),
               onTap: () {
                 Navigator.of(context).pop();
                 _openGenerator();
@@ -123,28 +112,83 @@ class HomePageState extends State<HomePage> {
             ListTile(
               leading: const Icon(Icons.history),
               title: const Text('Riwayat Scan'),
+              subtitle: const Text('Pencarian, folder, dan tag'),
               onTap: () {
                 Navigator.of(context).pop();
                 _openHistory();
               },
+            ),
+            const Divider(),
+            const AboutListTile(
+              icon: Icon(Icons.info_outline),
+              applicationName: 'QR-Scanner',
+              applicationVersion: '1.2.0 (Fase 2)',
+              applicationLegalese: 'MIT License • Encrypted with SQLCipher',
             ),
           ],
         ),
       ),
       body: Center(
         child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Text(
-            result,
-            textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 24.0, fontWeight: FontWeight.bold),
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.deepOrange.shade50,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.qr_code_scanner,
+                  size: 80,
+                  color: Colors.deepOrange.shade600,
+                ),
+              ),
+              const SizedBox(height: 24),
+              const Text(
+                'Hasil Pemindaian Terakhir:',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.grey,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey.shade300),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.04),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: SelectableText(
+                  result,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 15.0,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(
         backgroundColor: Colors.deepOrange,
+        foregroundColor: Colors.white,
         icon: const Icon(Icons.camera_alt),
-        label: const Text("Scan"),
+        label: const Text("Scan Kamera"),
         onPressed: _scanQR,
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
