@@ -414,25 +414,36 @@ Pengembangan arsitektur, basis data, keamanan, dan fungsionalitas aplikasi ini m
   Tautan: [https://www.sqlite.org/docs.html](https://www.sqlite.org/docs.html)
 
 ### 11.3 Keamanan, Kriptografi & Penyimpanan Kunci
+- **OWASP Mobile Application Security (MAS / MSTG)**: Standar pengujian keamanan aplikasi mobile industri internasional mencakup penyimpanan data aman (*Data Storage*), kriptografi (*Cryptography*), dan autentikasi.  
+  Tautan: [https://mas.owasp.org/](https://mas.owasp.org/)
+- **NIST SP 800-38D**: Standar kriptografi National Institute of Standards and Technology untuk rekomendasi mode operasi Galois/Counter Mode (GCM) dan enkripsi blok lanjutan AES.  
+  Tautan: [https://csrc.nist.gov/publications/detail/sp/800-38d/final](https://csrc.nist.gov/publications/detail/sp/800-38d/final)
 - **Zetetic SQLCipher Cryptographic Design**: Arsitektur enkripsi basis data tingkat halaman (*page-level*) berbasis AES-256-CBC, PBKDF2 HMAC-SHA512 key derivation, dan MAC integritas halaman.  
   Tautan: [https://www.zetetic.net/sqlcipher/design/](https://www.zetetic.net/sqlcipher/design/)
 - **Android Keystore System Guide**: Praktik terbaik Google untuk enkripsi master key di Android menggunakan hardware-backed security (TEE/SE) dan `EncryptedSharedPreferences`.  
   Tautan: [https://developer.android.com/training/articles/keystore](https://developer.android.com/training/articles/keystore)
 - **Apple iOS Keychain Services API**: Panduan keamanan Apple untuk penyimpanan item sensitif dan sertifikat/kunci kriptografi pada *Secure Enclave*.  
   Tautan: [https://developer.apple.com/documentation/security/keychain_services](https://developer.apple.com/documentation/security/keychain_services)
-- **Flutter Secure Storage Library**: Spesifikasi plugin penyimpanan aman multi-platform.  
+- **Flutter Secure Storage Library**: Spesifikasi plugin penyimpanan aman multi-platform berbasis Keystore & Keychain.  
   Tautan: [https://pub.dev/packages/flutter_secure_storage](https://pub.dev/packages/flutter_secure_storage)
 
 ### 11.4 Standar Format Barcode & QR Code
 - **ISO/IEC 18004:2015**: Standar internasional teknologi informasi — *Automatic identification and data capture techniques — QR Code bar code symbology specification*.
+- **ISO/IEC 15420:2009**: Standar spesifikasi symbology barcode linear internasional EAN/UPC (*EAN-13, EAN-8, UPC-A, UPC-E*).
 - **RFC 6350 (vCard Format)**: Standar format pertukaran data kartu kontak elektronik.  
   Tautan: [https://datatracker.ietf.org/doc/html/rfc6350](https://datatracker.ietf.org/doc/html/rfc6350)
 - **ZXing Barcode Format & Wi-Fi URI Scheme**: Spesifikasi sintaks decoding untuk barcode 1D/2D dan payload Wi-Fi (`WIFI:S:...;T:...;P:...;;`).  
   Tautan: [https://github.com/zxing/zxing/wiki/Barcode-Contents](https://github.com/zxing/zxing/wiki/Barcode-Contents)
+- **Flutter `barcode_scan` Package**: Pustaka penangkap barcode kamera platform native Android dan iOS pada Flutter.  
+  Tautan: [https://pub.dev/packages/barcode_scan](https://pub.dev/packages/barcode_scan)
 
 ### 11.5 Pola Desain Perangkat Lunak (*Software Architecture Patterns*)
+- **Martin Fowler — Clean Architecture & Presentation-Domain-Data Layering**: Panduan pola arsitektur pemisahan tanggung jawab antarmuka pengguna, layanan aplikasi, dan penyimpanan data.  
+  Tautan: [https://martinfowler.com/architecture/](https://martinfowler.com/architecture/)
 - **Martin Fowler — Transactional Outbox Pattern**: Arsitektur pengiriman event asinkron yang andal untuk sinkronisasi offline-first (`sync_queue`).  
   Tautan: [https://microservices.io/patterns/data/transactional-outbox.html](https://microservices.io/patterns/data/transactional-outbox.html)
+- **Google Material Design 3 Guidelines**: Panduan sistem desain antarmuka, navigasi drawer, skema warna adaptif, kontras tinggi, dan aksesibilitas komponen UI.  
+  Tautan: [https://m3.material.io/](https://m3.material.io/)
 - **RFC 4122 (A Universally Unique IDentifier - UUID URN Namespace)**: Pembangkitan UUID v4 berbasis nilai acak (pseudo-random) untuk identitas record terdistribusi.  
   Tautan: [https://datatracker.ietf.org/doc/html/rfc4122](https://datatracker.ietf.org/doc/html/rfc4122)
 - **Mermaid JavaScript Charting Documentation**: Standar penulisan diagram Mermaid (`erDiagram`, `flowchart`, `sequenceDiagram`) pada Markdown.  

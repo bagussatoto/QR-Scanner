@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <title>Dokumentasi Teknis & Arsitektur Proyek QR-Scanner</title>
+  <style>
+    @page {
+      size: A4;
+      margin: 20mm 15mm 20mm 15mm;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      font-size: 10pt;
+      line-height: 1.6;
+      color: #24292f;
+      background-color: #ffffff;
+      padding: 0;
+      margin: 0;
+    }
+    h1 {
+      font-size: 20pt;
+      font-weight: 700;
+      color: #0969da;
+      border-bottom: 2px solid #d0d7de;
+      padding-bottom: 8px;
+      margin-top: 0;
+      margin-bottom: 16px;
+      page-break-after: avoid;
+    }
+    h2 {
+      font-size: 14pt;
+      font-weight: 600;
+      color: #1f2328;
+      border-bottom: 1px solid #d0d7de;
+      padding-bottom: 6px;
+      margin-top: 24px;
+      margin-bottom: 12px;
+      page-break-after: avoid;
+    }
+    h3 {
+      font-size: 12pt;
+      font-weight: 600;
+      color: #24292f;
+      margin-top: 18px;
+      margin-bottom: 8px;
+      page-break-after: avoid;
+    }
+    h4 {
+      font-size: 10.5pt;
+      font-weight: 600;
+      margin-top: 14px;
+      margin-bottom: 6px;
+      page-break-after: avoid;
+    }
+    p {
+      margin-top: 0;
+      margin-bottom: 10px;
+      text-align: justify;
+    }
+    ul, ol {
+      margin-top: 0;
+      margin-bottom: 10px;
+      padding-left: 24px;
+    }
+    li {
+      margin-bottom: 4px;
+    }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin: 14px 0;
+      font-size: 9pt;
+      page-break-inside: avoid;
+    }
+    table th, table td {
+      border: 1px solid #d0d7de;
+      padding: 6px 10px;
+      text-align: left;
+    }
+    table th {
+      background-color: #f6f8fa;
+      font-weight: 600;
+      color: #1f2328;
+    }
+    table tr:nth-child(even) {
+      background-color: #fcfcfc;
+    }
+    pre {
+      background-color: #f6f8fa;
+      border: 1px solid #d0d7de;
+      border-radius: 6px;
+      padding: 12px;
+      overflow-x: auto;
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, monospace;
+      font-size: 8pt;
+      line-height: 1.45;
+      margin: 12px 0;
+      page-break-inside: avoid;
+    }
+    code {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, monospace;
+      font-size: 8.5pt;
+      background-color: rgba(175, 184, 193, 0.2);
+      padding: 0.2em 0.4em;
+      border-radius: 4px;
+    }
+    pre code {
+      background-color: transparent;
+      padding: 0;
+      font-size: inherit;
+    }
+    blockquote {
+      margin: 12px 0;
+      padding: 0 12px;
+      color: #57606a;
+      border-left: 4px solid #d0d7de;
+    }
+    hr {
+      height: 1px;
+      background-color: #d0d7de;
+      border: none;
+      margin: 20px 0;
+    }
+    a {
+      color: #0969da;
+      text-decoration: none;
+    }
+  </style>
+</head>
+<body>
+<h1>Dokumentasi Resmi Proyek — QR-Scanner Mobile App</h1>
+<p><strong>Aplikasi Pemindai QR Code &amp; Barcode Multi-Platform Berbasis Flutter dengan Basis Data Lokal Terenkripsi (SQLCipher) dan Siap Sinkronisasi Cloud.</strong></p>
+<hr>
+<h2>Informasi Proyek</h2>
+<table>
+<thead>
+<tr>
+<th align="left">Atribut</th>
+<th align="left">Keterangan</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left"><strong>Nama Proyek</strong></td>
+<td align="left">Flutter QR-Scanner</td>
+</tr>
+<tr>
+<td align="left"><strong>Repositori GitHub</strong></td>
+<td align="left"><a href="https://github.com/bagussatoto/QR-Scanner">bagussatoto/QR-Scanner</a></td>
+</tr>
+<tr>
+<td align="left"><strong>Versi Aplikasi</strong></td>
+<td align="left"><code>v1.1.0+2</code></td>
+</tr>
+<tr>
+<td align="left"><strong>Framework Utama</strong></td>
+<td align="left">Flutter (<code>sdk: flutter</code>, Dart <code>&gt;=3.0.0 &lt;4.0.0</code>)</td>
+</tr>
+<tr>
+<td align="left"><strong>Target Platform</strong></td>
+<td align="left">Android (API Level 21+) &amp; iOS (iOS 12.0+)</td>
+</tr>
+<tr>
+<td align="left"><strong>Engine Basis Data</strong></td>
+<td align="left">SQLite Terenkripsi via <strong>SQLCipher</strong> (AES-256) &amp; <strong>Drift ORM</strong></td>
+</tr>
+<tr>
+<td align="left"><strong>Keamanan Kunci</strong></td>
+<td align="left">Android Keystore / iOS Keychain via <code>FlutterSecureStorage</code></td>
+</tr>
+<tr>
+<td align="left"><strong>Lisensi</strong></td>
+<td align="left">Open Source</td>
+</tr>
+</tbody></table>
+<hr>
+<h2>Daftar Isi</h2>
+<ol>
+<li><a href="#1-pendahuluan--tujuan-proyek">Pendahuluan &amp; Tujuan Proyek</a></li>
+<li><a href="#2-arsitektur-perangkat-lunak">Arsitektur Perangkat Lunak</a></li>
+<li><a href="#3-alur-operasional-sistem-flowcharts">Alur Operasional Sistem (Flowcharts)</a></li>
+<li><a href="#4-desain-basis-data--entity-relationship-diagram-erd">Desain Basis Data &amp; Entity Relationship Diagram (ERD)</a></li>
+<li><a href="#5-spesifikasi-keamanan--kriptografi">Spesifikasi Keamanan &amp; Kriptografi</a></li>
+<li><a href="#6-struktur-kode-sumber-source-code-structure">Struktur Kode Sumber (<em>Source Code Structure</em>)</a></li>
+<li><a href="#7-pengujian-otomatis-unit-testing--cicd">Pengujian Otomatis (<em>Unit Testing</em>) &amp; CI/CD</a></li>
+<li><a href="#8-panduan-instalasi--deployment">Panduan Instalasi &amp; Deployment</a></li>
+<li><a href="#9-roadmap-pengembangan-lanjutan">Roadmap Pengembangan Lanjutan</a></li>
+<li><a href="#10-indeks-dokumen-terkait">Indeks Dokumen Terkait</a></li>
+<li><a href="#11-daftar-referensi--pustaka-teknis">Daftar Referensi &amp; Pustaka Teknis</a></li>
+</ol>
+<hr>
+<h2>1. Pendahuluan &amp; Tujuan Proyek</h2>
+<h3>1.1 Latar Belakang</h3>
+<p>Aplikasi pemindai barcode/QR konvensional seringkali hanya bersifat <em>stateless</em> (hanya menampilkan teks hasil scan lalu hilang saat aplikasi ditutup) atau menyimpan data teks polos tanpa perlindungan privasi. Proyek <strong>QR-Scanner</strong> ini dikembangkan untuk mentransformasi utilitas pemindai sederhana menjadi platform manajemen riwayat pemindaian yang <strong>aman (<em>encrypted at-rest</em>)</strong>, <strong>terorganisir (Folder &amp; Tag)</strong>, dan <strong>berkinerja tinggi (<em>offline-first</em>)</strong>.</p>
+<h3>1.2 Tujuan Utama</h3>
+<ol>
+<li><strong>Pemindaian Cepat &amp; Akurat</strong>: Mendukung QR Code dan barcode 2D secara <em>real-time</em> dengan kontrol kamera terintegrasi.</li>
+<li><strong>Penyimpanan Lokal Terenkripsi</strong>: Mengamankan riwayat scan sensitif (seperti kredensial Wi-Fi, kontak vCard, URL token) menggunakan enkripsi standar militer AES-256.</li>
+<li><strong>Manajemen Data yang Fleksibel</strong>: Memungkinkan pencarian teks instan, pengelompokan folder, pemberian label <em>tag</em>, dan penandaan favorit.</li>
+<li><strong>Kesiapan Sinkronisasi Multi-Perangkat</strong>: Skema data dirancang dengan UUID v4 di sisi klien dan tabel <em>outbox</em> (<code>sync_queue</code>) sehingga siap terhubung ke backend cloud tanpa konflik <em>primary key</em>.</li>
+</ol>
+<hr>
+<h2>2. Arsitektur Perangkat Lunak</h2>
+<p>Aplikasi dibangun menggunakan pola <strong>Layered Clean Architecture</strong> yang memisahkan tanggung jawab kode menjadi 4 lapisan utama:</p>
+<pre><code class="language-mermaid">flowchart TB
+    subgraph L1[&quot;1. Presentation / UI Layer&quot;]
+        HP[&quot;HomePage (lib/main.dart)&lt;br/&gt;• Antarmuka Kamera &amp; Floating Action Button&lt;br/&gt;• Drawer Navigasi &amp; Tampilan Hasil&quot;]
+        SHP[&quot;ScanHistoryPage (lib/pages/scan_history_page.dart)&lt;br/&gt;• Search Bar &amp; ChoiceChip Folder&lt;br/&gt;• StreamBuilder Reaktif Real-Time&lt;br/&gt;• Dialog Detail Scan &amp; Manajemen Tag&quot;]
+    end
+
+    subgraph L2[&quot;2. Service / Domain Layer&quot;]
+        SS[&quot;ScanService (lib/services/scan_service.dart)&lt;br/&gt;• Logika CRUD Scan &amp; Deteksi Konten&lt;br/&gt;• Query Pencarian &amp; Filter Favorit/Folder&lt;br/&gt;• Pencatatan Aksi Interaksi (ScanActions)&quot;]
+        FTS[&quot;FolderTagService (lib/services/folder_tag_service.dart)&lt;br/&gt;• Pengelolaan Kategori Folder&lt;br/&gt;• Relasi Many-to-Many ScanTags&quot;]
+    end
+
+    subgraph L3[&quot;3. Data Persistence Layer (Drift ORM)&quot;]
+        DB[&quot;AppDatabase (lib/database/database.dart)&lt;br/&gt;• Singleton Database Connection&lt;br/&gt;• MigrationStrategy &amp; Foreign Keys Enforcement&quot;]
+        TBL[&quot;Tabel Skema (lib/database/tables.dart)&lt;br/&gt;• 9 Tabel Relasional (Drift DSL)&quot;]
+    end
+
+    subgraph L4[&quot;4. Security &amp; Hardware Storage Layer&quot;]
+        KEY[&quot;FlutterSecureStorage&lt;br/&gt;• Android Keystore / iOS Keychain (Kunci 256-bit)&quot;]
+        CIPHER[(&quot;SQLCipher Native Database (qr_scanner.sqlite)&lt;br/&gt;• Enkripsi AES-256 Halaman Basis Data At-Rest&quot;)]
+    end
+
+    HP --&gt;|&quot;Panggil Simpan Scan&quot;| SS
+    HP --&gt;|&quot;Navigasi Menu&quot;| SHP
+    SHP --&gt;|&quot;Stream Query &amp; Aksi&quot;| SS
+    SHP --&gt;|&quot;Kelola Folder &amp; Tag&quot;| FTS
+    SS --&gt;|&quot;Operasi DML / DQL&quot;| DB
+    FTS --&gt;|&quot;Transaksi Relasi&quot;| DB
+    DB --&gt;|&quot;Validasi Skema&quot;| TBL
+    DB --&gt;|&quot;Ambil Kunci Kriptografi&quot;| KEY
+    DB --&gt;|&quot;Enkripsi / Dekripsi I/O&quot;| CIPHER
+</code></pre>
+<hr>
+<h2>3. Alur Operasional Sistem (Flowcharts)</h2>
+<h3>3.1 Alur Pemindaian Kamera &amp; Penyimpanan</h3>
+<p>Alur saat pengguna menekan tombol pemindai hingga data tersimpan:</p>
+<pre><code class="language-mermaid">flowchart TD
+    Start([&quot;Buka Aplikasi&quot;]) --&gt; Home[&quot;Layar Utama (HomePage)&quot;]
+    Home --&gt; PressScan[&quot;Tekan Tombol &#39;Scan&#39;&quot;]
+    PressScan --&gt; CheckPerm{&quot;Izin Akses Kamera?&quot;}
+
+    CheckPerm -- &quot;Ditolak&quot; --&gt; DeniedMsg[&quot;Tampilkan Pesan:&lt;br/&gt;&#39;Camera permission was denied&#39;&quot;]
+    CheckPerm -- &quot;Diberikan&quot; --&gt; CamOpen[&quot;Aktifkan Kamera Pemindai&quot;]
+
+    CamOpen --&gt; Capture{&quot;Hasil Pembacaan&quot;}
+    Capture -- &quot;Dibatalkan / Tombol Back&quot; --&gt; CancelMsg[&quot;Pesan: Batal memindai&quot;]
+    Capture -- &quot;Berhasil Membaca&quot; --&gt; DetectType[&quot;Deteksi Tipe Konten Otomatis:&lt;br/&gt;• URL (http/https)&lt;br/&gt;• Wi-Fi (WIFI:)&lt;br/&gt;• Kontak (BEGIN:VCARD)&lt;br/&gt;• Geo (geo:)&lt;br/&gt;• Teks Biasa&quot;]
+
+    DetectType --&gt; SaveLocal[&quot;Panggil ScanService.insertScan()&quot;]
+    SaveLocal --&gt; InitSec{&quot;Inisialisasi Database&quot;}
+    InitSec --&gt; LoadKey[&quot;Ambil Kunci 256-bit dari Secure Storage&quot;]
+    LoadKey --&gt; EncryptSave[&quot;Simpan ke Tabel SCAN_HISTORY&lt;br/&gt;(Terenkripsi SQLCipher AES-256)&quot;]
+    EncryptSave --&gt; DisplayHome[&quot;Perbarui Tampilan Layar Utama&quot;]
+    DisplayHome --&gt; End([&quot;Selesai&quot;])
+    DeniedMsg --&gt; End
+    CancelMsg --&gt; End
+</code></pre>
+<h3>3.2 Alur Riwayat Scan &amp; Interaksi Pengguna</h3>
+<p>Alur kerja pada halaman riwayat scan terhubung secara reaktif (<em>reactive stream</em>):</p>
+<pre><code class="language-mermaid">flowchart TD
+    OpenHistory([&quot;Buka Menu Riwayat Scan&quot;]) --&gt; StreamWatch[&quot;Berlangganan Stream: watchFilteredScans()&quot;]
+    StreamWatch --&gt; FilterEvaluator[&quot;Evaluasi Filter Aktif:&lt;br/&gt;1. Kata Kunci Search Bar&lt;br/&gt;2. Status Bintang Favorit&lt;br/&gt;3. Kategori Folder Terpilih&lt;br/&gt;4. Data Aktif (isDeleted = false)&quot;]
+
+    FilterEvaluator --&gt; RenderItems[&quot;Tampilkan Daftar Scan&quot;]
+    RenderItems --&gt; UserAction{&quot;Pilihan Interaksi Pengguna&quot;}
+
+    UserAction -- &quot;Salin Nilai&quot; --&gt; CopyAction[&quot;Salin ke Clipboard &amp;&lt;br/&gt;Catat ke Tabel SCAN_ACTIONS&quot;]
+    UserAction -- &quot;Tandai Favorit&quot; --&gt; FavAction[&quot;Toggle isFavorite (true / false)&quot;]
+    UserAction -- &quot;Geser Kiri (Swipe)&quot; --&gt; DelAction[&quot;Soft Delete (isDeleted = true)&quot;]
+    UserAction -- &quot;Ketuk Item&quot; --&gt; DetailModal[&quot;Buka Dialog Detail Scan:&lt;br/&gt;• Atur Dropdown Folder&lt;br/&gt;• Pasang / Buat Chip Tag&quot;]
+
+    CopyAction --&gt; StreamWatch
+    FavAction --&gt; StreamWatch
+    DelAction --&gt; StreamWatch
+    DetailModal --&gt; StreamWatch
+</code></pre>
+<hr>
+<h2>4. Desain Basis Data &amp; Entity Relationship Diagram (ERD)</h2>
+<p>Basis data dirancang dengan spesifikasi <strong>9 entitas</strong> terorganisir untuk mengakomodasi kebutuhan lokal saat ini dan sinkronisasi cloud di masa depan:</p>
+<pre><code class="language-mermaid">erDiagram
+    USERS ||--o{ DEVICES : &quot;registers&quot;
+    USERS ||--o{ FOLDERS : &quot;owns&quot;
+    USERS ||--o{ SCAN_HISTORY : &quot;records&quot;
+    USERS ||--o{ QR_GENERATED : &quot;creates&quot;
+    USERS ||--o{ TAGS : &quot;defines&quot;
+
+    DEVICES ||--o{ SCAN_HISTORY : &quot;captures&quot;
+    FOLDERS ||--o{ SCAN_HISTORY : &quot;organizes&quot;
+
+    SCAN_HISTORY ||--o{ SCAN_ACTIONS : &quot;logs&quot;
+    SCAN_HISTORY ||--o{ SCAN_TAGS : &quot;labeled_with&quot;
+    TAGS ||--o{ SCAN_TAGS : &quot;applied_to&quot;
+
+    DEVICES ||--o{ SYNC_QUEUE : &quot;queues&quot;
+
+    USERS {
+        uuid id PK
+        string email UK
+        string display_name
+        string auth_provider
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    DEVICES {
+        uuid id PK
+        uuid user_id FK
+        string platform
+        string device_name
+        string app_version
+        timestamp last_sync_at
+        timestamp created_at
+    }
+
+    FOLDERS {
+        uuid id PK
+        uuid user_id FK
+        string name
+        string color_hex
+        string icon_name
+        boolean is_deleted
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    SCAN_HISTORY {
+        uuid id PK
+        uuid user_id FK
+        uuid device_id FK
+        uuid folder_id FK
+        text raw_value
+        string content_type
+        string barcode_format
+        string title
+        text notes
+        boolean is_favorite
+        boolean is_deleted
+        string sync_status
+        timestamp scanned_at
+        timestamp updated_at
+    }
+
+    QR_GENERATED {
+        uuid id PK
+        uuid user_id FK
+        string content_type
+        text payload
+        string fg_color_hex
+        string bg_color_hex
+        string error_correction
+        boolean is_deleted
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    TAGS {
+        uuid id PK
+        uuid user_id FK
+        string name
+        string color_hex
+        timestamp created_at
+    }
+
+    SCAN_TAGS {
+        uuid scan_id PK, FK
+        uuid tag_id PK, FK
+        timestamp assigned_at
+    }
+
+    SCAN_ACTIONS {
+        uuid id PK
+        uuid scan_id FK
+        string action_type
+        timestamp performed_at
+    }
+
+    SYNC_QUEUE {
+        uuid id PK
+        uuid device_id FK
+        string entity_type
+        uuid entity_id
+        string operation
+        text payload_json
+        int retry_count
+        string status
+        timestamp created_at
+    }
+</code></pre>
+<h3>Ringkasan Fungsi Entitas</h3>
+<ol>
+<li><strong><code>USERS</code> &amp; <code>DEVICES</code></strong>: Identitas pengguna lokal (anonim) dan metadata perangkat untuk atribusi sinkronisasi.</li>
+<li><strong><code>FOLDERS</code></strong>: Kategori pengelompokan scan (<code>1:N</code> terhadap <code>SCAN_HISTORY</code>).</li>
+<li><strong><code>SCAN_HISTORY</code></strong>: Tabel inti transaksi pemindaian QR/barcode.</li>
+<li><strong><code>TAGS</code> &amp; <code>SCAN_TAGS</code></strong>: Relasi banyak-ke-banyak (<em>many-to-many</em>) untuk pelabelan fleksibel dengan <em>Composite Primary Key</em> <code>(scan_id, tag_id)</code> dan aturan <code>ON DELETE CASCADE</code>.</li>
+<li><strong><code>SCAN_ACTIONS</code></strong>: Catatan riwayat interaksi pengguna (<code>copy</code>, <code>open_url</code>, <code>share</code>).</li>
+<li><strong><code>QR_GENERATED</code></strong>: Menyimpan riwayat pembuatan QR code kustom.</li>
+<li><strong><code>SYNC_QUEUE</code></strong>: Antrean <em>Transactional Outbox</em> untuk pengiriman data saat terhubung ke server cloud.</li>
+</ol>
+<p><em>(Spesifikasi lengkap kamus data dan skrip DDL SQL dapat dilihat pada <a href="DATABASE.md">doc/DATABASE.md</a>).</em></p>
+<hr>
+<h2>5. Spesifikasi Keamanan &amp; Kriptografi</h2>
+<p>Aplikasi menerapkan perlindungan data berlapis:</p>
+<ol>
+<li><strong>Enkripsi File Basis Data (<em>Encryption at Rest</em>)</strong>:<ul>
+<li>Seluruh blok file basis data <code>qr_scanner.sqlite</code> dienkripsi menggunakan library native <strong>SQLCipher</strong> dengan algoritma <strong>AES-256-CBC</strong>.</li>
+<li>Integritas data diverifikasi pada setiap pembukaan menggunakan <code>PRAGMA cipher_version;</code>.</li>
+</ul>
+</li>
+<li><strong>Penyimpanan Kunci Kriptografi Aman</strong>:<ul>
+<li>Kunci enkripsi dibangkitkan secara kriptografis menggunakan generator bilangan acak perangkat keras (<code>Random.secure()</code>) sepanjang 256-bit (32 byte).</li>
+<li>Kunci disimpan menggunakan <code>FlutterSecureStorage</code>:<ul>
+<li><strong>Android</strong>: Tersimpan di <strong>Android Keystore System</strong> menggunakan enkripsi AES master key (<code>encryptedSharedPreferences: true</code>).</li>
+<li><strong>iOS</strong>: Tersimpan di <strong>iOS Keychain Services</strong> dengan akses yang terikat pada sandbox aplikasi.</li>
+</ul>
+</li>
+</ul>
+</li>
+<li><strong>Pencegahan Kehilangan Data &amp; Konflik (<em>Data Integrity</em>)</strong>:<ul>
+<li>Penerapan <em>Soft Delete</em> (<code>is_deleted = true</code>) mencegah hilangnya riwayat lokal secara tidak sengaja dan memfasilitasi rekonsiliasi data pada sinkronisasi cloud.</li>
+<li>Pembangkitan UUID v4 di sisi klien mencegah benturan ID (<em>primary key collision</em>) saat sinkronisasi multi-perangkat.</li>
+</ul>
+</li>
+</ol>
+<hr>
+<h2>6. Struktur Kode Sumber (<em>Source Code Structure</em>)</h2>
+<pre><code class="language-text">QR-Scanner/
+├── .github/
+│   └── workflows/
+│       └── flutter_test.yml      # CI Otomatis: Build &amp; Eksekusi Unit Test
+├── android/                      # Wrapper &amp; Manifest Konfigurasi Android
+├── ios/                          # Wrapper &amp; Info.plist Konfigurasi iOS
+├── doc/                          # Dokumentasi Teknis Lengkap
+│   ├── DATABASE.md               # Kamus Data &amp; DDL SQL (SQLite / PostgreSQL)
+│   ├── DOKUMENTASI_PROYEK.md     # Dokumen Resmi Master Proyek (File ini)
+│   ├── FLOWCHART.md              # Diagram Alur Lengkap Sistem
+│   ├── PANDUAN_PENGGUNAAN.md     # Panduan Operasional Pengguna &amp; Developer
+│   └── RINGKASAN_PERBAIKAN.md    # Rekapitulasi Riwayat Pengembangan
+├── lib/
+│   ├── database/
+│   │   ├── database.dart         # Singleton AppDatabase &amp; Engine SQLCipher
+│   │   └── tables.dart           # Definisi 9 Tabel Drift ORM
+│   ├── pages/
+│   │   └── scan_history_page.dart# Halaman Riwayat Scan, Filter &amp; Detail Modal
+│   ├── services/
+│   │   ├── folder_tag_service.dart# Layanan Bisnis Folder &amp; Tag (M:N)
+│   │   └── scan_service.dart     # Layanan Bisnis Scan, Search, Filter &amp; Actions
+│   └── main.dart                 # Entry Point Aplikasi, Layar Kamera &amp; Drawer
+├── test/
+│   └── database_test.dart        # Suite Unit Test In-Memory Drift Database
+├── pubspec.yaml                  # Manifest Dependensi Proyek Flutter
+└── README.md                     # Halaman Utama Repositori GitHub
+</code></pre>
+<hr>
+<h2>7. Pengujian Otomatis (<em>Unit Testing</em>) &amp; CI/CD</h2>
+<p>Proyek dilengkapi dengan pipeline jaminan kualitas (<em>Quality Assurance</em>) otomatis:</p>
+<h3>7.1 Cakupan Unit Test (<code>test/database_test.dart</code>)</h3>
+<ul>
+<li><strong>Verifikasi UUID &amp; Default Value</strong>: Memastikan kolom <code>id</code> menghasilkan UUID v4 36-karakter serta default <code>sync_status = &#39;pending&#39;</code>.</li>
+<li><strong>Pengujian Logika Bisnis Scan</strong>: Pengujian fungsi <code>insertScan</code>, toggle bintang favorit, serta verifikasi <em>soft delete</em>.</li>
+<li><strong>Pencarian &amp; Multi-Filter</strong>: Pengujian query <code>searchScans</code> terhadap kombinasi kata kunci, status favorit, dan folder.</li>
+<li><strong>Relasi &amp; Cascade Delete</strong>: Memverifikasi <em>composite primary key</em> <code>ScanTags</code> menolak duplikasi tag, serta memastikan penghapusan data induk memicu <code>ON DELETE CASCADE</code> ke tabel anak.</li>
+</ul>
+<h3>7.2 Integrasi Berkelanjutan (<em>Continuous Integration</em>)</h3>
+<p>Workflow GitHub Actions (<a href="../.github/workflows/flutter_test.yml">.github/workflows/flutter_test.yml</a>) berjalan secara otomatis pada setiap <em>push</em> atau <em>pull request</em> ke branch <code>main</code>:</p>
+<ol>
+<li>Menyediakan <em>runner</em> Ubuntu dengan paket native <code>libsqlite3-dev</code>.</li>
+<li>Menyiapkan lingkungan Flutter SDK stable.</li>
+<li>Menjalankan <code>flutter pub get</code>.</li>
+<li>Menjalankan generator kode <code>build_runner</code> untuk Drift.</li>
+<li>Mengeksekusi seluruh pengujian <code>flutter test test/database_test.dart</code>.</li>
+</ol>
+<hr>
+<h2>8. Panduan Instalasi &amp; Deployment</h2>
+<h3>8.1 Prasyarat Sistem</h3>
+<ul>
+<li><strong>Flutter SDK</strong>: Versi 3.0.0 ke atas.</li>
+<li><strong>Android Studio / VS Code</strong>: Terpasang Flutter &amp; Dart extension.</li>
+<li><strong>JDK</strong>: Versi 17 atau yang kompatibel dengan Gradle 8.x.</li>
+<li><strong>Xcode</strong> (khusus macOS untuk target iOS).</li>
+</ul>
+<h3>8.2 Langkah Instalasi</h3>
+<ol>
+<li><p><strong>Clone Repositori</strong>:</p>
+<pre><code class="language-bash">git clone https://github.com/bagussatoto/QR-Scanner.git
+cd QR-Scanner
+</code></pre>
+</li>
+<li><p><strong>Unduh Dependensi</strong>:</p>
+<pre><code class="language-bash">flutter pub get
+</code></pre>
+</li>
+<li><p><strong>Generate Kode Drift ORM</strong>:</p>
+<pre><code class="language-bash">dart run build_runner build --delete-conflicting-outputs
+</code></pre>
+</li>
+<li><p><strong>Jalankan Unit Test</strong>:</p>
+<pre><code class="language-bash">flutter test test/database_test.dart
+</code></pre>
+</li>
+<li><p><strong>Jalankan Aplikasi pada Emulator/Perangkat Fisik</strong>:</p>
+<pre><code class="language-bash">flutter run
+</code></pre>
+</li>
+</ol>
+<hr>
+<h2>9. Roadmap Pengembangan Lanjutan</h2>
+<table>
+<thead>
+<tr>
+<th align="left">Fase</th>
+<th align="left">Target</th>
+<th align="left">Fokus Pengembangan</th>
+<th align="left">Status</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left"><strong>Fase 1</strong></td>
+<td align="left"><code>v1.1.0</code></td>
+<td align="left">Skema basis data lokal Drift, operasi CRUD scan, folder, tag, pencarian, dan filter favorit.</td>
+<td align="left"><strong>Selesai (100%)</strong></td>
+</tr>
+<tr>
+<td align="left"><strong>Fase 2</strong></td>
+<td align="left"><code>v1.2.0</code></td>
+<td align="left">Fitur pembuatan QR code (<em>generator</em>) dengan tabel <code>QR_GENERATED</code>, ekspor riwayat ke CSV/JSON, dan integrasi library scanner modern (<code>mobile_scanner</code>).</td>
+<td align="left"><strong>Sedang Berjalan</strong></td>
+</tr>
+<tr>
+<td align="left"><strong>Fase 3</strong></td>
+<td align="left"><code>v2.0.0</code></td>
+<td align="left">Sinkronisasi <em>offline-first</em> ke server cloud (PostgreSQL / Supabase) menggunakan tabel <code>SYNC_QUEUE</code> (<em>outbox pattern</em>), autentikasi akun pengguna, dan Row-Level Security (RLS).</td>
+<td align="left"><strong>Tabel Siap di Skema</strong></td>
+</tr>
+<tr>
+<td align="left"><strong>Fase 4</strong></td>
+<td align="left"><code>v2.1.0+</code></td>
+<td align="left">Enkripsi <em>at-rest</em> SQLCipher AES-256, kebijakan retensi arsip otomatis, dan optimasi performa skala besar.</td>
+<td align="left"><strong>Enkripsi Lokal Selesai</strong></td>
+</tr>
+</tbody></table>
+<hr>
+<h2>10. Indeks Dokumen Terkait</h2>
+<p>Dokumentasi teknis pendukung yang tersedia pada folder <a href="./"><code>doc/</code></a>:</p>
+<ul>
+<li><a href="DATABASE.md">doc/DATABASE.md</a> — Kamus data detail per kolom, indeks performa, serta skrip DDL SQL untuk SQLite dan PostgreSQL.</li>
+<li><a href="FLOWCHART.md">doc/FLOWCHART.md</a> — Seluruh diagram alur sistem, arsitektur data, dan alur CI.</li>
+<li><a href="PANDUAN_PENGGUNAAN.md">doc/PANDUAN_PENGGUNAAN.md</a> — Panduan visual langkah demi langkah bagi pengguna akhir dan pengembang.</li>
+<li><a href="RINGKASAN_PERBAIKAN.md">doc/RINGKASAN_PERBAIKAN.md</a> — Rekapitulasi historis pembaruan dan implementasi fitur yang telah selesai dilakukan.</li>
+</ul>
+<hr>
+<h2>11. Daftar Referensi &amp; Pustaka Teknis</h2>
+<p>Pengembangan arsitektur, basis data, keamanan, dan fungsionalitas aplikasi ini mengacu pada standar industri dan dokumentasi resmi berikut:</p>
+<h3>11.1 Framework &amp; Bahasa Pemrograman</h3>
+<ul>
+<li><strong>Flutter Official Documentation</strong>: Panduan arsitektur aplikasi mobile, siklus hidup widget, dan manajemen status.<br>Tautan: <a href="https://docs.flutter.dev/">https://docs.flutter.dev/</a></li>
+<li><strong>Dart Language Tour &amp; Specification</strong>: Spesifikasi bahasa Dart 3.x, sistem tipe <em>sound null safety</em>, serta pustaka asynchronous (<code>async</code>/<code>await</code>/<code>Stream</code>).<br>Tautan: <a href="https://dart.dev/guides">https://dart.dev/guides</a></li>
+</ul>
+<h3>11.2 Basis Data &amp; ORM (Drift &amp; SQLite)</h3>
+<ul>
+<li><strong>Drift (formerly Moor) Documentation</strong>: Dokumentasi resmi ORM Drift untuk Flutter, mencakup DSL tabel, generator <code>build_runner</code>, migrasi skema, dan unit testing in-memory.<br>Tautan: <a href="https://drift.simonbinder.eu/">https://drift.simonbinder.eu/</a></li>
+<li><strong>SQLite Database Engine Specification</strong>: Standar engine SQLite, dukungan relasi <code>PRAGMA foreign_keys</code>, indeks komposit, serta <em>full-text search</em> (FTS5).<br>Tautan: <a href="https://www.sqlite.org/docs.html">https://www.sqlite.org/docs.html</a></li>
+</ul>
+<h3>11.3 Keamanan, Kriptografi &amp; Penyimpanan Kunci</h3>
+<ul>
+<li><strong>OWASP Mobile Application Security (MAS / MSTG)</strong>: Standar pengujian keamanan aplikasi mobile industri internasional mencakup penyimpanan data aman (<em>Data Storage</em>), kriptografi (<em>Cryptography</em>), dan autentikasi.<br>Tautan: <a href="https://mas.owasp.org/">https://mas.owasp.org/</a></li>
+<li><strong>NIST SP 800-38D</strong>: Standar kriptografi National Institute of Standards and Technology untuk rekomendasi mode operasi Galois/Counter Mode (GCM) dan enkripsi blok lanjutan AES.<br>Tautan: <a href="https://csrc.nist.gov/publications/detail/sp/800-38d/final">https://csrc.nist.gov/publications/detail/sp/800-38d/final</a></li>
+<li><strong>Zetetic SQLCipher Cryptographic Design</strong>: Arsitektur enkripsi basis data tingkat halaman (<em>page-level</em>) berbasis AES-256-CBC, PBKDF2 HMAC-SHA512 key derivation, dan MAC integritas halaman.<br>Tautan: <a href="https://www.zetetic.net/sqlcipher/design/">https://www.zetetic.net/sqlcipher/design/</a></li>
+<li><strong>Android Keystore System Guide</strong>: Praktik terbaik Google untuk enkripsi master key di Android menggunakan hardware-backed security (TEE/SE) dan <code>EncryptedSharedPreferences</code>.<br>Tautan: <a href="https://developer.android.com/training/articles/keystore">https://developer.android.com/training/articles/keystore</a></li>
+<li><strong>Apple iOS Keychain Services API</strong>: Panduan keamanan Apple untuk penyimpanan item sensitif dan sertifikat/kunci kriptografi pada <em>Secure Enclave</em>.<br>Tautan: <a href="https://developer.apple.com/documentation/security/keychain_services">https://developer.apple.com/documentation/security/keychain_services</a></li>
+<li><strong>Flutter Secure Storage Library</strong>: Spesifikasi plugin penyimpanan aman multi-platform berbasis Keystore &amp; Keychain.<br>Tautan: <a href="https://pub.dev/packages/flutter_secure_storage">https://pub.dev/packages/flutter_secure_storage</a></li>
+</ul>
+<h3>11.4 Standar Format Barcode &amp; QR Code</h3>
+<ul>
+<li><strong>ISO/IEC 18004:2015</strong>: Standar internasional teknologi informasi — <em>Automatic identification and data capture techniques — QR Code bar code symbology specification</em>.</li>
+<li><strong>ISO/IEC 15420:2009</strong>: Standar spesifikasi symbology barcode linear internasional EAN/UPC (<em>EAN-13, EAN-8, UPC-A, UPC-E</em>).</li>
+<li><strong>RFC 6350 (vCard Format)</strong>: Standar format pertukaran data kartu kontak elektronik.<br>Tautan: <a href="https://datatracker.ietf.org/doc/html/rfc6350">https://datatracker.ietf.org/doc/html/rfc6350</a></li>
+<li><strong>ZXing Barcode Format &amp; Wi-Fi URI Scheme</strong>: Spesifikasi sintaks decoding untuk barcode 1D/2D dan payload Wi-Fi (<code>WIFI:S:...;T:...;P:...;;</code>).<br>Tautan: <a href="https://github.com/zxing/zxing/wiki/Barcode-Contents">https://github.com/zxing/zxing/wiki/Barcode-Contents</a></li>
+<li><strong>Flutter <code>barcode_scan</code> Package</strong>: Pustaka penangkap barcode kamera platform native Android dan iOS pada Flutter.<br>Tautan: <a href="https://pub.dev/packages/barcode_scan">https://pub.dev/packages/barcode_scan</a></li>
+</ul>
+<h3>11.5 Pola Desain Perangkat Lunak (<em>Software Architecture Patterns</em>)</h3>
+<ul>
+<li><strong>Martin Fowler — Clean Architecture &amp; Presentation-Domain-Data Layering</strong>: Panduan pola arsitektur pemisahan tanggung jawab antarmuka pengguna, layanan aplikasi, dan penyimpanan data.<br>Tautan: <a href="https://martinfowler.com/architecture/">https://martinfowler.com/architecture/</a></li>
+<li><strong>Martin Fowler — Transactional Outbox Pattern</strong>: Arsitektur pengiriman event asinkron yang andal untuk sinkronisasi offline-first (<code>sync_queue</code>).<br>Tautan: <a href="https://microservices.io/patterns/data/transactional-outbox.html">https://microservices.io/patterns/data/transactional-outbox.html</a></li>
+<li><strong>Google Material Design 3 Guidelines</strong>: Panduan sistem desain antarmuka, navigasi drawer, skema warna adaptif, kontras tinggi, dan aksesibilitas komponen UI.<br>Tautan: <a href="https://m3.material.io/">https://m3.material.io/</a></li>
+<li><strong>RFC 4122 (A Universally Unique IDentifier - UUID URN Namespace)</strong>: Pembangkitan UUID v4 berbasis nilai acak (pseudo-random) untuk identitas record terdistribusi.<br>Tautan: <a href="https://datatracker.ietf.org/doc/html/rfc4122">https://datatracker.ietf.org/doc/html/rfc4122</a></li>
+<li><strong>Mermaid JavaScript Charting Documentation</strong>: Standar penulisan diagram Mermaid (<code>erDiagram</code>, <code>flowchart</code>, <code>sequenceDiagram</code>) pada Markdown.<br>Tautan: <a href="https://mermaid.js.org/">https://mermaid.js.org/</a></li>
+</ul>
+
+</body>
+</html>
