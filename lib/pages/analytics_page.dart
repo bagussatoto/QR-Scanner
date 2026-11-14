@@ -6,6 +6,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutterqrscan/services/analytics_service.dart';
+import 'package:flutterqrscan/services/export_service.dart';
 
 class AnalyticsPage extends StatefulWidget {
   const AnalyticsPage({Key? key}) : super(key: key);
@@ -34,6 +35,30 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('Laporan statistik berhasil disalin ke clipboard!'),
+        backgroundColor: Colors.green,
+      ),
+    );
+  }
+
+  Future<void> _exportCsv() async {
+    final csv = await ExportService.instance.exportScansToCsv();
+    await Clipboard.setData(ClipboardData(text: csv));
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Data CSV berhasil diekspor dan disalin ke clipboard!'),
+        backgroundColor: Colors.green,
+      ),
+    );
+  }
+
+  Future<void> _exportJson() async {
+    final jsonStr = await ExportService.instance.exportToJson();
+    await Clipboard.setData(ClipboardData(text: jsonStr));
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Backup JSON berhasil diekspor dan disalin ke clipboard!'),
         backgroundColor: Colors.green,
       ),
     );
@@ -411,6 +436,33 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
                           TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
                     ),
                     onPressed: () => _copySummary(report),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          icon: const Icon(Icons.table_chart,
+                              color: Colors.green),
+                          label: const Text('Ekspor CSV'),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                          ),
+                          onPressed: _exportCsv,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          icon: const Icon(Icons.code, color: Colors.blue),
+                          label: const Text('Backup JSON'),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                          ),
+                          onPressed: _exportJson,
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 20),
                 ],

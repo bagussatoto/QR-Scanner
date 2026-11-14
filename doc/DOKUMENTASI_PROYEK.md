@@ -381,7 +381,7 @@ Workflow GitHub Actions ([.github/workflows/flutter_test.yml](../.github/workflo
 | Fase | Target | Fokus Pengembangan | Status |
 | :--- | :--- | :--- | :--- |
 | **Fase 1** | `v1.1.0` | Skema basis data lokal Drift, operasi CRUD scan, folder, tag, pencarian, dan filter favorit. | **Selesai (100%)** |
-| **Fase 2** | `v1.2.0` | Modernisasi pemindai kamera (`mobile_scanner` dengan viewfinder & kontrol flash/flip), mode **Batch Scanning**, pembuatan QR code (`qr_flutter`), serta **Dashboard Statistik & Analisis Scan** (`AnalyticsService`). | **Selesai (100%)** |
+| **Fase 2** | `v1.2.0` | Modernisasi pemindai kamera (`mobile_scanner`), mode **Batch Scanning**, pembuatan QR code (`qr_flutter`), **Dashboard Statistik** (`AnalyticsService`), serta **Ekspor & Backup CSV/JSON** (`ExportService`). | **Selesai (100%)** |
 | **Fase 3** | `v2.0.0` | Sinkronisasi *offline-first* ke server cloud (PostgreSQL / Supabase) menggunakan tabel `SYNC_QUEUE` (*outbox pattern*), autentikasi akun pengguna, dan Row-Level Security (RLS). | **Tabel Siap di Skema** |
 | **Fase 4** | `v2.1.0+` | Enkripsi *at-rest* SQLCipher AES-256, kebijakan retensi arsip otomatis, dan optimasi performa skala besar. | **Enkripsi Lokal Selesai** |
 
@@ -446,6 +446,8 @@ Pengembangan arsitektur, basis data, keamanan, dan fungsionalitas aplikasi ini m
   Tautan: [https://m3.material.io/](https://m3.material.io/)
 - **RFC 4122 (A Universally Unique IDentifier - UUID URN Namespace)**: Pembangkitan UUID v4 berbasis nilai acak (pseudo-random) untuk identitas record terdistribusi.  
   Tautan: [https://datatracker.ietf.org/doc/html/rfc4122](https://datatracker.ietf.org/doc/html/rfc4122)
+- **RFC 4180 (Common Format and MIME Type for CSV Files)**: Standar internasional pemformatan dan *escaping* tanda kutip/koma pada ekspor tabel CSV.  
+  Tautan: [https://datatracker.ietf.org/doc/html/rfc4180](https://datatracker.ietf.org/doc/html/rfc4180)
 - **Mermaid JavaScript Charting Documentation**: Standar penulisan diagram Mermaid (`erDiagram`, `flowchart`, `sequenceDiagram`) pada Markdown.  
   Tautan: [https://mermaid.js.org/](https://mermaid.js.org/)
 

@@ -1,12 +1,13 @@
 // lib/pages/scan_history_page.dart
 // -------------------------------------------------------------------
 // UI page that displays scanned QR codes / barcodes with real-time
-// search, favorite & folder filtering, tag management, and copy action
-// logging (ScanActions).
+// search, favorite & folder filtering, tag management, copy action
+// logging (ScanActions), and CSV / JSON export & backup restore.
 // -------------------------------------------------------------------
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutterqrscan/database/database.dart';
+import 'package:flutterqrscan/services/export_service.dart';
 import 'package:flutterqrscan/services/folder_tag_service.dart';
 import 'package:flutterqrscan/services/scan_service.dart';
 
@@ -20,6 +21,7 @@ class ScanHistoryPage extends StatefulWidget {
 class _ScanHistoryPageState extends State<ScanHistoryPage> {
   final ScanService _scanService = ScanService.instance;
   final FolderTagService _folderTagService = FolderTagService.instance;
+  final ExportService _exportService = ExportService.instance;
   final TextEditingController _searchController = TextEditingController();
 
   String _searchQuery = '';
@@ -73,6 +75,209 @@ class _ScanHistoryPageState extends State<ScanHistoryPage> {
     if (created == true && controller.text.trim().isNotEmpty) {
       await _folderTagService.createFolder(name: controller.text.trim());
     }
+  }
+
+  Future<void> _handleExportCsv() async {
+    try {
+      final csv = await _exportService.exportScansToCsv();
+      await Clipboard.setData(ClipboardData(text: csv));
+
+      String savedInfo = '';
+      try {
+        final file = await _exportService.saveExportToFile(
+          filename: 'riwayat_scan.csv',
+          content: csv,
+        );
+        savedInfo = '\nDisimpan di: ${file.path}';
+      } catch (_) {}
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Data CSV berhasil disalin ke clipboard!$savedInfo'),
+          backgroundColor: Colors.green,
+          duration: const Duration(seconds: 4),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Gagal mengekspor CSV: $e')),
+      );
+    }
+  }
+
+  Future<void> _handleExportJson() async {
+    try {
+      final jsonStr = await _exportService.exportToJson();
+      await Clipboard.setData(ClipboardData(text: jsonStr));
+
+      String savedInfo = '';
+      try {
+        final file = await _exportService.saveExportToFile(
+          filename: 'backup_qr_scanner.json',
+          content: jsonStr,
+        );
+        savedInfo = '\nDisimpan di: ${file.path}';
+      } catch (_) {}
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Backup JSON berhasil disalin ke clipboard!$savedInfo'),
+          backgroundColor: Colors.green,
+          duration: const Duration(seconds: 4),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Gagal mengekspor JSON: $e')),
+      );
+    }
+  }
+
+  Future<void> _showImportJsonDialog() async {
+    final jsonController = TextEditingController();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Restore dari Backup JSON'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Text(
+              'Tempelkan isi file backup JSON Anda di bawah ini untuk memulihkan riwayat scan dan QR code:',
+              style: TextStyle(fontSize: 12, color: Colors.grey),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: jsonController,
+              maxLines: 6,
+              decoration: const InputDecoration(
+                hintText: '{\n  "app": "QR-Scanner",\n  "scans": [...]\n}',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton.icon(
+                icon: const Icon(Icons.paste, size: 16),
+                label: const Text('Tempel dari Clipboard'),
+                onPressed: () async {
+                  final data = await Clipboard.getData('text/plain');
+                  if (data?.text != null) {
+                    jsonController.text = data!.text!;
+                  }
+                },
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Batal'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.deepOrange),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child:
+                const Text('Pulihkan', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && jsonController.text.trim().isNotEmpty) {
+      try {
+        final count =
+            await _exportService.importFromJson(jsonController.text.trim());
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Berhasil memulihkan $count item dari backup JSON!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      } catch (e) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Format JSON tidak valid: $e')),
+        );
+      }
+    }
+  }
+
+  void _showExportBackupSheet() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return Padding(
+          padding: const EdgeInsets.all(20.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Text(
+                'Ekspor & Backup Riwayat Data',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 6),
+              const Text(
+                'Pilih format ekspor untuk membuka data di Excel/Spreadsheet atau mencadangkan seluruh database.',
+                style: TextStyle(fontSize: 12, color: Colors.grey),
+              ),
+              const Divider(height: 24),
+              ListTile(
+                leading: CircleAvatar(
+                  backgroundColor: Colors.green.shade50,
+                  child: const Icon(Icons.table_chart, color: Colors.green),
+                ),
+                title: const Text('Ekspor ke CSV (Excel / Spreadsheet)'),
+                subtitle:
+                    const Text('Format tabel RFC 4180 siap buka di Excel'),
+                onTap: () {
+                  Navigator.of(ctx).pop();
+                  _handleExportCsv();
+                },
+              ),
+              ListTile(
+                leading: CircleAvatar(
+                  backgroundColor: Colors.blue.shade50,
+                  child: const Icon(Icons.code, color: Colors.blue),
+                ),
+                title: const Text('Backup Lengkap ke JSON'),
+                subtitle: const Text(
+                    'Mencakup riwayat scan, folder, dan QR yang dibuat'),
+                onTap: () {
+                  Navigator.of(ctx).pop();
+                  _handleExportJson();
+                },
+              ),
+              ListTile(
+                leading: CircleAvatar(
+                  backgroundColor: Colors.orange.shade50,
+                  child: const Icon(Icons.restore, color: Colors.deepOrange),
+                ),
+                title: const Text('Restore / Impor dari JSON'),
+                subtitle:
+                    const Text('Pulihkan riwayat scan dari data backup JSON'),
+                onTap: () {
+                  Navigator.of(ctx).pop();
+                  _showImportJsonDialog();
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   Future<void> _showScanDetails(ScanHistoryData scan) async {
@@ -243,6 +448,7 @@ class _ScanHistoryPageState extends State<ScanHistoryPage> {
       appBar: AppBar(
         title: const Text('Riwayat Scan'),
         backgroundColor: Colors.deepOrange,
+        foregroundColor: Colors.white,
         actions: [
           IconButton(
             icon: Icon(_favoritesOnly ? Icons.star : Icons.star_border),
@@ -257,6 +463,11 @@ class _ScanHistoryPageState extends State<ScanHistoryPage> {
             icon: const Icon(Icons.create_new_folder_outlined),
             tooltip: 'Buat Folder',
             onPressed: _showCreateFolderDialog,
+          ),
+          IconButton(
+            icon: const Icon(Icons.import_export),
+            tooltip: 'Ekspor & Backup Data',
+            onPressed: _showExportBackupSheet,
           ),
         ],
       ),

@@ -8,6 +8,7 @@ import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutterqrscan/database/database.dart';
 import 'package:flutterqrscan/services/analytics_service.dart';
+import 'package:flutterqrscan/services/export_service.dart';
 import 'package:flutterqrscan/services/folder_tag_service.dart';
 import 'package:flutterqrscan/services/qr_generator_service.dart';
 import 'package:flutterqrscan/services/scan_service.dart';
@@ -18,6 +19,7 @@ void main() {
   late FolderTagService folderTagService;
   late QRGeneratorService qrService;
   late AnalyticsService analyticsService;
+  late ExportService exportService;
 
   setUp(() {
     db = AppDatabase.forTesting(NativeDatabase.memory());
@@ -25,6 +27,12 @@ void main() {
     folderTagService = FolderTagService.forTesting(db, scanService);
     qrService = QRGeneratorService.forTesting(db, scanService);
     analyticsService = AnalyticsService.forTesting(
+      db,
+      scanService: scanService,
+      qrService: qrService,
+      folderTagService: folderTagService,
+    );
+    exportService = ExportService.forTesting(
       db,
       scanService: scanService,
       qrService: qrService,
@@ -384,6 +392,82 @@ void main() {
       expect(summary, contains('Total Pemindaian: 3 item'));
       expect(summary, contains('Kode QR Favorit: 1 item'));
       expect(summary, contains('URL: 1'));
+    });
+  });
+
+  group('ExportService CSV & JSON Backup/Restore', () {
+    test(
+        'exportScansToCsv generates valid RFC 4180 CSV with escaped commas and quotes',
+        () async {
+      await scanService.insertScan(
+        rawValue: 'https://flutter.dev',
+        barcodeFormat: 'QR_CODE',
+        contentType: 'url',
+        title: 'Official, "Flutter" Site',
+      );
+
+      final csv = await exportService.exportScansToCsv();
+      final lines = csv.trim().split('\n');
+      expect(lines.length, equals(2));
+      expect(
+        lines.first.trim(),
+        equals(
+          'id,raw_value,content_type,barcode_format,title,notes,is_favorite,folder_id,scanned_at',
+        ),
+      );
+      expect(lines[1], contains('https://flutter.dev'));
+      expect(lines[1], contains('"Official, ""Flutter"" Site"'));
+    });
+
+    test('exportToJson and importFromJson perform full backup and restore cycle',
+        () async {
+      final s1 = await scanService.insertScan(
+        rawValue: 'WIFI:S:HomeNet;T:WPA;P:12345678;;',
+        barcodeFormat: 'QR_CODE',
+        contentType: 'wifi',
+        title: 'Home Wi-Fi',
+      );
+      await scanService.toggleFavorite(s1);
+
+      await qrService.insertGeneratedQR(
+        payload: 'https://dart.dev',
+        contentType: 'url',
+        fgColorHex: '#1976D2',
+      );
+
+      final jsonBackup = await exportService.exportToJson();
+      expect(jsonBackup, contains('"app": "QR-Scanner"'));
+      expect(jsonBackup, contains('Home Wi-Fi'));
+      expect(jsonBackup, contains('https://dart.dev'));
+
+      // Create a brand new empty in-memory DB to test restore
+      final freshDb = AppDatabase.forTesting(NativeDatabase.memory());
+      final freshScanService = ScanService.forTesting(freshDb);
+      final freshQrService = QRGeneratorService.forTesting(
+        freshDb,
+        freshScanService,
+      );
+      final freshExportService = ExportService.forTesting(
+        freshDb,
+        scanService: freshScanService,
+        qrService: freshQrService,
+      );
+
+      final restoredCount =
+          await freshExportService.importFromJson(jsonBackup);
+      expect(restoredCount, equals(2));
+
+      final restoredScans = await freshScanService.fetchAllScans();
+      expect(restoredScans, hasLength(1));
+      expect(restoredScans.single.title, equals('Home Wi-Fi'));
+      expect(restoredScans.single.isFavorite, isTrue);
+
+      final restoredQRs = await freshQrService.fetchAllGeneratedQRs();
+      expect(restoredQRs, hasLength(1));
+      expect(restoredQRs.single.payload, equals('https://dart.dev'));
+      expect(restoredQRs.single.fgColorHex, equals('#1976D2'));
+
+      await freshDb.close();
     });
   });
 }
