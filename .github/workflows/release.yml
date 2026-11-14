@@ -1,0 +1,44 @@
+name: Create Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Release ${{ github.ref_name }}
+          body: |
+            ## 🚀 QR-Scanner ${{ github.ref_name }}
+            
+            Aplikasi Flutter QR & Barcode Scanner modern dengan enkripsi basis data SQLite (SQLCipher), pemindai kamera interaktif, mode batch scan, dan ekspor data lengkap.
+            
+            ### 🌟 Fitur Utama pada Versi Ini:
+            - **Enkripsi Data At-Rest (SQLCipher AES-256)**: Seluruh riwayat scan tersimpan aman secara offline dengan PBKDF2 derivation key dari Android Keystore / iOS Keychain.
+            - **Scanner Kamera Canggih (`mobile_scanner`)**: Deteksi instan multi-format, kontrol flash/senter, pergantian kamera depan/belakang, dan animated viewfinder overlay.
+            - **Mode Pemindaian Berkelanjutan (Batch Scanning)**: Pindai puluhan kode tanpa jeda dengan debounce anti-duplikasi dan baki sesi pemindaian.
+            - **Aksi Cerdas Kontekstual (Smart Actions)**:
+              - 🌐 **URL**: Buka langsung di browser native.
+              - 📶 **Wi-Fi**: Ekstraksi SSID & satu ketukan salin kata sandi.
+              - 👤 **vCard Kontak**: Hubungi telepon, SMS, atau kirim email langsung.
+              - 📍 **Lokasi Geografis**: Buka koordinat langsung di Google Maps.
+              - 📦 **Barcode Produk (EAN-13, UPC)**: Pencarian informasi dan harga produk di Google.
+            - **QR Code Generator Kustom (`qr_flutter`)**: Kustomisasi warna foreground/background, level toleransi eror (L/M/Q/H), serta riwayat pembuatan.
+            - **Ekspor & Backup Data (RFC 4180 CSV & JSON)**: Ekspor tabel untuk Microsoft Excel / Google Sheets, serta backup & restore penuh.
+            - **Dashboard Statistik & Analisis**: Visualisasi metrik KPI, distribusi kategori konten, dan breakdown format barcode.
+            - **Dokumentasi Teknis Resmi**: Buku panduan lengkap arsitektur, flowcharts, ERD, dan berkas PDF terlampir.
+          files: |
+            doc/DOKUMENTASI_PROYEK.pdf
+          draft: false
+          prerelease: false
