@@ -10,6 +10,7 @@ import 'package:flutterqrscan/database/database.dart';
 import 'package:flutterqrscan/services/export_service.dart';
 import 'package:flutterqrscan/services/folder_tag_service.dart';
 import 'package:flutterqrscan/services/scan_service.dart';
+import 'package:flutterqrscan/services/smart_action_service.dart';
 
 class ScanHistoryPage extends StatefulWidget {
   const ScanHistoryPage({Key? key}) : super(key: key);
@@ -289,11 +290,14 @@ class _ScanHistoryPageState extends State<ScanHistoryPage> {
 
     if (!mounted) return;
 
+    final parsed =
+        SmartActionService.instance.parse(scan.rawValue, scan.barcodeFormat);
+
     await showDialog<void>(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
-          title: const Text('Detail Scan'),
+          title: Text(parsed.displayTitle),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -306,7 +310,31 @@ class _ScanHistoryPageState extends State<ScanHistoryPage> {
                 const SizedBox(height: 8),
                 Text('Format: ${scan.barcodeFormat}'),
                 Text('Tipe konten: ${scan.contentType}'),
-                Text('Waktu: ${scan.scannedAt.toLocal()}'),
+                Text('Waktu: ${scan.scannedAt.toLocal().toString().split('.').first}'),
+                if (parsed.attributes.isNotEmpty) ...[
+                  const SizedBox(height: 10),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade100,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.grey.shade300),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: parsed.attributes.entries.map((e) {
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 2.0),
+                          child: Text(
+                            '${e.key}: ${e.value}',
+                            style: const TextStyle(fontSize: 12),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                ],
                 const Divider(height: 24),
                 DropdownButtonFormField<String?>(
                   value: currentFolderId,
@@ -424,6 +452,24 @@ class _ScanHistoryPageState extends State<ScanHistoryPage> {
             ),
           ),
           actions: [
+            if (parsed.actions.isNotEmpty)
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor:
+                      parsed.actions.first.color ?? Colors.deepOrange,
+                  foregroundColor: Colors.white,
+                ),
+                icon: Icon(parsed.actions.first.icon, size: 16),
+                label: Text(parsed.actions.first.label),
+                onPressed: () {
+                  Navigator.of(ctx).pop();
+                  SmartActionService.instance.executeAction(
+                    context: context,
+                    action: parsed.actions.first,
+                    scanId: scan.id,
+                  );
+                },
+              ),
             TextButton.icon(
               icon: const Icon(Icons.copy),
               label: const Text('Salin'),

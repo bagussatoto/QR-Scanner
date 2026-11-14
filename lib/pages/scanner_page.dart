@@ -10,6 +10,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutterqrscan/pages/scan_history_page.dart';
 import 'package:flutterqrscan/services/scan_service.dart';
+import 'package:flutterqrscan/services/smart_action_service.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
 class ScannerPage extends StatefulWidget {
@@ -156,148 +157,269 @@ class _ScannerPageState extends State<ScannerPage>
     final contentType = _detectContentType(rawValue);
 
     // Persist to encrypted local database
+    String? scanId;
     try {
-      await ScanService.instance.insertScan(
+      final saved = await ScanService.instance.insertScan(
         rawValue: rawValue,
         barcodeFormat: formatName,
         contentType: contentType,
       );
+      scanId = saved.id;
     } catch (_) {}
 
     if (!mounted) return;
-    _showSingleResultBottomSheet(rawValue, formatName, contentType);
+    _showSingleResultBottomSheet(rawValue, formatName, contentType, scanId);
   }
 
   void _showSingleResultBottomSheet(
-      String rawValue, String format, String contentType) {
+      String rawValue, String format, String contentType,
+      [String? scanId]) {
+    final parsed = SmartActionService.instance.parse(rawValue, format);
+
     showModalBottomSheet(
       context: context,
       isDismissible: false,
       enableDrag: false,
+      isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (ctx) {
         IconData typeIcon = Icons.text_snippet;
-        if (contentType == 'url') typeIcon = Icons.link;
-        if (contentType == 'wifi') typeIcon = Icons.wifi;
-        if (contentType == 'vcard') typeIcon = Icons.person;
-        if (contentType == 'product') typeIcon = Icons.shopping_bag;
+        Color typeColor = Colors.deepOrange;
+
+        switch (parsed.type) {
+          case SmartContentType.url:
+            typeIcon = Icons.link;
+            typeColor = Colors.blue;
+            break;
+          case SmartContentType.wifi:
+            typeIcon = Icons.wifi;
+            typeColor = Colors.teal;
+            break;
+          case SmartContentType.vcard:
+            typeIcon = Icons.person;
+            typeColor = Colors.purple;
+            break;
+          case SmartContentType.email:
+            typeIcon = Icons.email;
+            typeColor = Colors.blue;
+            break;
+          case SmartContentType.phone:
+            typeIcon = Icons.call;
+            typeColor = Colors.green;
+            break;
+          case SmartContentType.sms:
+            typeIcon = Icons.message;
+            typeColor = Colors.teal;
+            break;
+          case SmartContentType.geo:
+            typeIcon = Icons.location_on;
+            typeColor = Colors.redAccent;
+            break;
+          case SmartContentType.product:
+            typeIcon = Icons.shopping_bag;
+            typeColor = Colors.orange;
+            break;
+          default:
+            typeIcon = Icons.text_snippet;
+            typeColor = Colors.deepOrange;
+        }
 
         return Padding(
-          padding: const EdgeInsets.all(20.0),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
-                children: [
-                  CircleAvatar(
-                    backgroundColor: Colors.deepOrange.shade100,
-                    child: Icon(typeIcon, color: Colors.deepOrange),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
+          padding: EdgeInsets.only(
+            left: 20.0,
+            right: 20.0,
+            top: 20.0,
+            bottom: MediaQuery.of(ctx).viewInsets.bottom + 20.0,
+          ),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    CircleAvatar(
+                      backgroundColor: typeColor.withOpacity(0.15),
+                      child: Icon(typeIcon, color: typeColor),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            parsed.displayTitle,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 15,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          Text(
+                            '$format • ${parsed.type.name.toUpperCase()}',
+                            style: TextStyle(
+                              color: Colors.grey.shade600,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.green.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.green.shade200),
+                      ),
+                      child: const Text(
+                        'Tersimpan',
+                        style: TextStyle(
+                          color: Colors.green,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+
+                // Structured attributes card if available
+                if (parsed.attributes.isNotEmpty) ...[
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade50,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: Colors.grey.shade200),
+                    ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Kode Terdeteksi ($format)',
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 15,
+                      children: parsed.attributes.entries.map((entry) {
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 3.0),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '${entry.key}: ',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12,
+                                ),
+                              ),
+                              Expanded(
+                                child: Text(
+                                  entry.value,
+                                  style: const TextStyle(fontSize: 12),
+                                ),
+                              ),
+                            ],
                           ),
-                        ),
-                        Text(
-                          'Kategori: ${contentType.toUpperCase()}',
-                          style: TextStyle(
-                            color: Colors.grey.shade600,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Colors.green.shade50,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.green.shade200),
-                    ),
-                    child: const Text(
-                      'Tersimpan',
-                      style: TextStyle(
-                        color: Colors.green,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 11,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 14),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade100,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: Colors.grey.shade300),
-                ),
-                child: SelectableText(
-                  rawValue,
-                  style: const TextStyle(fontSize: 14),
-                  maxLines: 4,
-                ),
-              ),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      icon: const Icon(Icons.copy),
-                      label: const Text('Salin'),
-                      onPressed: () {
-                        Clipboard.setData(ClipboardData(text: rawValue));
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                              content: Text('Teks disalin ke clipboard')),
                         );
-                      },
+                      }).toList(),
                     ),
                   ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.deepOrange,
-                      ),
-                      icon: const Icon(Icons.qr_code_scanner,
-                          color: Colors.white),
-                      label: const Text(
-                        'Scan Lagi',
-                        style: TextStyle(color: Colors.white),
-                      ),
-                      onPressed: () {
-                        Navigator.of(ctx).pop();
-                        setState(() {
-                          _isProcessingSingle = false;
-                        });
-                      },
-                    ),
-                  ),
+                  const SizedBox(height: 10),
                 ],
-              ),
-              const SizedBox(height: 8),
-              TextButton(
-                child: const Text('Selesai & Kembali ke Beranda'),
-                onPressed: () {
-                  Navigator.of(ctx).pop();
-                  Navigator.of(context).pop(rawValue);
-                },
-              ),
-            ],
+
+                // Raw content preview
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade100,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: Colors.grey.shade300),
+                  ),
+                  child: SelectableText(
+                    rawValue,
+                    style: const TextStyle(fontSize: 13),
+                    maxLines: 3,
+                  ),
+                ),
+                const SizedBox(height: 14),
+
+                // Smart Action Buttons
+                ...parsed.actions.map((act) {
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 8.0),
+                    child: act.isPrimary
+                        ? ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: act.color ?? Colors.deepOrange,
+                              foregroundColor: Colors.white,
+                              padding:
+                                  const EdgeInsets.symmetric(vertical: 12),
+                            ),
+                            icon: Icon(act.icon, size: 20),
+                            label: Text(
+                              act.label,
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.bold, fontSize: 14),
+                            ),
+                            onPressed: () =>
+                                SmartActionService.instance.executeAction(
+                              context: context,
+                              action: act,
+                              scanId: scanId,
+                            ),
+                          )
+                        : OutlinedButton.icon(
+                            style: OutlinedButton.styleFrom(
+                              padding:
+                                  const EdgeInsets.symmetric(vertical: 10),
+                            ),
+                            icon: Icon(act.icon, size: 18, color: act.color),
+                            label: Text(act.label),
+                            onPressed: () =>
+                                SmartActionService.instance.executeAction(
+                              context: context,
+                              action: act,
+                              scanId: scanId,
+                            ),
+                          ),
+                  );
+                }),
+
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.grey.shade800,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                        icon: const Icon(Icons.qr_code_scanner, size: 18),
+                        label: const Text('Scan Lagi'),
+                        onPressed: () {
+                          Navigator.of(ctx).pop();
+                          setState(() {
+                            _isProcessingSingle = false;
+                          });
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: TextButton(
+                        child: const Text('Kembali ke Beranda'),
+                        onPressed: () {
+                          Navigator.of(ctx).pop();
+                          Navigator.of(context).pop(rawValue);
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         );
       },

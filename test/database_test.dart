@@ -12,6 +12,7 @@ import 'package:flutterqrscan/services/export_service.dart';
 import 'package:flutterqrscan/services/folder_tag_service.dart';
 import 'package:flutterqrscan/services/qr_generator_service.dart';
 import 'package:flutterqrscan/services/scan_service.dart';
+import 'package:flutterqrscan/services/smart_action_service.dart';
 
 void main() {
   late AppDatabase db;
@@ -20,12 +21,14 @@ void main() {
   late QRGeneratorService qrService;
   late AnalyticsService analyticsService;
   late ExportService exportService;
+  late SmartActionService smartActionService;
 
   setUp(() {
     db = AppDatabase.forTesting(NativeDatabase.memory());
     scanService = ScanService.forTesting(db);
     folderTagService = FolderTagService.forTesting(db, scanService);
     qrService = QRGeneratorService.forTesting(db, scanService);
+    smartActionService = SmartActionService.forTesting(scanService);
     analyticsService = AnalyticsService.forTesting(
       db,
       scanService: scanService,
@@ -468,6 +471,85 @@ void main() {
       expect(restoredQRs.single.fgColorHex, equals('#1976D2'));
 
       await freshDb.close();
+    });
+  });
+
+  group('SmartActionService Parsing & Contextual Action Routing', () {
+    test('parses web URL and provides open_url action', () {
+      final parsed = smartActionService.parse('https://flutter.dev');
+      expect(parsed.type, equals(SmartContentType.url));
+      expect(parsed.actions.first.actionType, equals('open_url'));
+      expect(parsed.actions.first.target, equals('https://flutter.dev'));
+      expect(parsed.actions.first.isPrimary, isTrue);
+    });
+
+    test('parses Wi-Fi URI and extracts SSID, password, and copy action', () {
+      final parsed = smartActionService.parse(
+        'WIFI:S:OfficeNetwork;T:WPA;P:SuperSecret123;H:false;;',
+      );
+      expect(parsed.type, equals(SmartContentType.wifi));
+      expect(parsed.attributes['Nama Jaringan (SSID)'], equals('OfficeNetwork'));
+      expect(parsed.attributes['Kata Sandi'], equals('SuperSecret123'));
+      expect(parsed.attributes['Keamanan'], equals('WPA'));
+
+      final copyPassAction = parsed.actions
+          .firstWhere((a) => a.actionType == 'copy_password');
+      expect(copyPassAction.target, equals('SuperSecret123'));
+      expect(copyPassAction.isPrimary, isTrue);
+    });
+
+    test('parses vCard contact and extracts phone, email, and actions', () {
+      const vcard = '''BEGIN:VCARD
+VERSION:3.0
+FN:Bagus Satoto
+TEL:+6281234567890
+EMAIL:bagus@example.com
+ORG:Deepmind
+END:VCARD''';
+
+      final parsed = smartActionService.parse(vcard);
+      expect(parsed.type, equals(SmartContentType.vcard));
+      expect(parsed.displayTitle, contains('Bagus Satoto'));
+      expect(parsed.attributes['Nomor Telepon'], equals('+6281234567890'));
+      expect(parsed.attributes['Email'], equals('bagus@example.com'));
+
+      final actionTypes = parsed.actions.map((a) => a.actionType).toList();
+      expect(actionTypes, containsAll(['call', 'send_sms', 'send_email']));
+    });
+
+    test('parses Phone tel: URI and provides call action', () {
+      final parsed = smartActionService.parse('tel:+628991234567');
+      expect(parsed.type, equals(SmartContentType.phone));
+      expect(parsed.actions.first.actionType, equals('call'));
+      expect(parsed.actions.first.target, equals('tel:+628991234567'));
+    });
+
+    test('parses SMS smsto: URI and provides send_sms action', () {
+      final parsed = smartActionService.parse('smsto:0812345678:Info Promo');
+      expect(parsed.type, equals(SmartContentType.sms));
+      expect(parsed.attributes['Tujuan'], equals('0812345678'));
+      expect(parsed.attributes['Isi Pesan'], equals('Info Promo'));
+      expect(parsed.actions.first.actionType, equals('send_sms'));
+    });
+
+    test('parses Geo URI and generates Google Maps query link', () {
+      final parsed = smartActionService.parse('geo:-6.200000,106.816666');
+      expect(parsed.type, equals(SmartContentType.geo));
+      expect(parsed.actions.first.actionType, equals('open_map'));
+      expect(
+        parsed.actions.first.target,
+        contains('https://www.google.com/maps/search/?api=1&query=-6.200000,106.816666'),
+      );
+    });
+
+    test('parses Product barcode and generates Google Search query link', () {
+      final parsed = smartActionService.parse('8999999123456', 'EAN_13');
+      expect(parsed.type, equals(SmartContentType.product));
+      expect(parsed.actions.first.actionType, equals('search_product'));
+      expect(
+        parsed.actions.first.target,
+        contains('https://www.google.com/search?q=8999999123456'),
+      );
     });
   });
 }

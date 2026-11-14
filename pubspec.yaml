@@ -19,6 +19,9 @@ dependencies:
   # QR Code generation
   qr_flutter: ^4.1.0
 
+  # Smart Actions & External App Launching
+  url_launcher: ^6.2.5
+
   # Local database (Drift ORM)
   drift: ^2.12.0
   path_provider: ^2.1.1
