@@ -58,6 +58,15 @@ class FolderTagService {
         .watch();
   }
 
+  /// Rename an existing folder.
+  Future<void> renameFolder(String folderId, String newName) async {
+    await (_db.update(_db.folders)..where((t) => t.id.equals(folderId)))
+        .write(FoldersCompanion(
+      name: Value(newName.trim()),
+      updatedAt: Value(DateTime.now()),
+    ));
+  }
+
   /// Soft-delete a folder and detach any scans currently assigned to it.
   Future<void> deleteFolder(String folderId) async {
     await _db.transaction(() async {
@@ -102,6 +111,11 @@ class FolderTagService {
   Stream<List<Tag>> watchTags() {
     return (_db.select(_db.tags)..orderBy([(t) => OrderingTerm.asc(t.name)]))
         .watch();
+  }
+
+  /// Delete a tag; linked [ScanTags] rows are removed via ON DELETE CASCADE.
+  Future<int> deleteTag(String tagId) {
+    return (_db.delete(_db.tags)..where((t) => t.id.equals(tagId))).go();
   }
 
   /// Attach a tag to a scan (ignores if already attached).

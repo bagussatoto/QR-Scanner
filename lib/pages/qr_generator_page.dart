@@ -46,6 +46,31 @@ class _QRGeneratorPageState extends State<QRGeneratorPage>
     return '#${color.value.toRadixString(16).substring(2).toUpperCase()}';
   }
 
+  Color _hexToColor(String hex, Color fallback) {
+    final cleaned = hex.replaceFirst('#', '').trim();
+    if (cleaned.length == 6) {
+      final parsed = int.tryParse('FF$cleaned', radix: 16);
+      if (parsed != null) return Color(parsed);
+    } else if (cleaned.length == 8) {
+      final parsed = int.tryParse(cleaned, radix: 16);
+      if (parsed != null) return Color(parsed);
+    }
+    return fallback;
+  }
+
+  int _parseErrorCorrectionLevel(String code) {
+    switch (code.toUpperCase()) {
+      case 'L':
+        return QrErrorCorrectLevel.L;
+      case 'Q':
+        return QrErrorCorrectLevel.Q;
+      case 'H':
+        return QrErrorCorrectLevel.H;
+      default:
+        return QrErrorCorrectLevel.M;
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -436,13 +461,16 @@ class _QRGeneratorPageState extends State<QRGeneratorPage>
           separatorBuilder: (_, __) => const Divider(),
           itemBuilder: (context, index) {
             final item = list[index];
+            final fgColor = _hexToColor(item.fgColorHex, Colors.black);
+            final bgColor = _hexToColor(item.bgColorHex, Colors.white);
+            final errorLevel = _parseErrorCorrectionLevel(item.errorCorrection);
             return ListTile(
               leading: Container(
                 width: 48,
                 height: 48,
                 padding: const EdgeInsets.all(4),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: bgColor,
                   borderRadius: BorderRadius.circular(6),
                   border: Border.all(color: Colors.grey.shade300),
                 ),
@@ -450,6 +478,16 @@ class _QRGeneratorPageState extends State<QRGeneratorPage>
                   data: item.payload,
                   version: QrVersions.auto,
                   size: 40.0,
+                  backgroundColor: bgColor,
+                  eyeStyle: QrEyeStyle(
+                    eyeShape: QrEyeShape.square,
+                    color: fgColor,
+                  ),
+                  dataModuleStyle: QrDataModuleStyle(
+                    dataModuleShape: QrDataModuleShape.square,
+                    color: fgColor,
+                  ),
+                  errorCorrectionLevel: errorLevel,
                 ),
               ),
               title: Text(
@@ -488,6 +526,10 @@ class _QRGeneratorPageState extends State<QRGeneratorPage>
                 _payloadController.text = item.payload;
                 setState(() {
                   _selectedType = item.contentType;
+                  _fgColor = fgColor;
+                  _bgColor = bgColor;
+                  _errorCorrectionLabel = item.errorCorrection;
+                  _errorCorrectionLevel = errorLevel;
                 });
                 _tabController.animateTo(0);
               },

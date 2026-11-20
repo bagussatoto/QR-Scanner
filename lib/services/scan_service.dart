@@ -27,6 +27,7 @@ class ScanService {
     String? notes,
     String? folderId,
     String contentType = 'text',
+    DateTime? scannedAt,
   }) async {
     final user = await ensureLocalUser();
     final device = await _ensureDevice(user.id);
@@ -41,8 +42,28 @@ class ScanService {
             title: Value(title),
             notes: Value(notes),
             contentType: Value(contentType),
+            scannedAt:
+                scannedAt != null ? Value(scannedAt) : const Value.absent(),
           ),
         );
+  }
+
+  /// Update the editable `title` and `notes` metadata for a given scan.
+  Future<void> updateScanDetails({
+    required String scanId,
+    String? title,
+    String? notes,
+  }) async {
+    final cleanTitle =
+        (title == null || title.trim().isEmpty) ? null : title.trim();
+    final cleanNotes =
+        (notes == null || notes.trim().isEmpty) ? null : notes.trim();
+    await (_db.update(_db.scanHistory)..where((t) => t.id.equals(scanId)))
+        .write(ScanHistoryCompanion(
+      title: Value(cleanTitle),
+      notes: Value(cleanNotes),
+      updatedAt: Value(DateTime.now()),
+    ));
   }
 
   /// Toggle the `isFavorite` flag for a given scan.
@@ -80,11 +101,13 @@ class ScanService {
     String query = '',
     bool favoritesOnly = false,
     String? folderId,
+    String? tagId,
   }) {
     return _buildFilteredQuery(
       query: query,
       favoritesOnly: favoritesOnly,
       folderId: folderId,
+      tagId: tagId,
     ).get();
   }
 
@@ -93,11 +116,13 @@ class ScanService {
     String query = '',
     bool favoritesOnly = false,
     String? folderId,
+    String? tagId,
   }) {
     return _buildFilteredQuery(
       query: query,
       favoritesOnly: favoritesOnly,
       folderId: folderId,
+      tagId: tagId,
     ).watch();
   }
 
@@ -105,6 +130,7 @@ class ScanService {
     required String query,
     required bool favoritesOnly,
     required String? folderId,
+    required String? tagId,
   }) {
     final trimmed = query.trim();
     final selectStmt = _db.select(_db.scanHistory)
@@ -115,6 +141,12 @@ class ScanService {
         }
         if (folderId != null) {
           predicate = predicate & t.folderId.equals(folderId);
+        }
+        if (tagId != null) {
+          final taggedScanIds = _db.selectOnly(_db.scanTags)
+            ..addColumns([_db.scanTags.scanId])
+            ..where(_db.scanTags.tagId.equals(tagId));
+          predicate = predicate & t.id.isInQuery(taggedScanIds);
         }
         if (trimmed.isNotEmpty) {
           final pattern = '%$trimmed%';

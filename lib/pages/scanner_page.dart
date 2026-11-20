@@ -69,18 +69,6 @@ class _ScannerPageState extends State<ScannerPage>
     super.dispose();
   }
 
-  String _detectContentType(String value) {
-    final trimmed = value.trim();
-    if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
-      return 'url';
-    }
-    if (trimmed.startsWith('WIFI:')) return 'wifi';
-    if (trimmed.startsWith('BEGIN:VCARD')) return 'vcard';
-    if (trimmed.startsWith('geo:')) return 'geo';
-    if (RegExp(r'^\d{8,14}$').hasMatch(trimmed)) return 'product';
-    return 'text';
-  }
-
   void _onDetect(BarcodeCapture capture) async {
     final barcodes = capture.barcodes;
     if (barcodes.isEmpty) return;
@@ -107,7 +95,8 @@ class _ScannerPageState extends State<ScannerPage>
       HapticFeedback.lightImpact();
 
       final formatName = barcode.format.name.toUpperCase();
-      final contentType = _detectContentType(rawValue);
+      final contentType =
+          SmartActionService.instance.parse(rawValue, formatName).type.name;
 
       // Persist to encrypted local database
       try {
@@ -153,7 +142,8 @@ class _ScannerPageState extends State<ScannerPage>
     HapticFeedback.mediumImpact();
 
     final formatName = barcode.format.name.toUpperCase();
-    final contentType = _detectContentType(rawValue);
+    final contentType =
+        SmartActionService.instance.parse(rawValue, formatName).type.name;
 
     // Persist to encrypted local database
     String? scanId;

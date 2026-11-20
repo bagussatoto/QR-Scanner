@@ -28,6 +28,7 @@ class _ScanHistoryPageState extends State<ScanHistoryPage> {
   String _searchQuery = '';
   bool _favoritesOnly = false;
   String? _selectedFolderId;
+  String? _selectedTagId;
 
   @override
   void dispose() {
@@ -49,33 +50,259 @@ class _ScanHistoryPageState extends State<ScanHistoryPage> {
 
   Future<void> _showCreateFolderDialog() async {
     final controller = TextEditingController();
-    final created = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Folder Baru'),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          decoration: const InputDecoration(
-            hintText: 'Nama folder (mis. Kerja, Wi-Fi)',
+    try {
+      final created = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Folder Baru'),
+          content: TextField(
+            controller: controller,
+            autofocus: true,
+            decoration: const InputDecoration(
+              hintText: 'Nama folder (mis. Kerja, Wi-Fi)',
+            ),
           ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text('Batal'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child: const Text('Simpan'),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Batal'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Simpan'),
-          ),
-        ],
-      ),
-    );
+      );
 
-    if (created == true && controller.text.trim().isNotEmpty) {
-      await _folderTagService.createFolder(name: controller.text.trim());
+      if (created == true && controller.text.trim().isNotEmpty) {
+        await _folderTagService.createFolder(name: controller.text.trim());
+      }
+    } finally {
+      controller.dispose();
     }
+  }
+
+  Future<void> _showRenameFolderDialog(Folder folder) async {
+    final controller = TextEditingController(text: folder.name);
+    try {
+      final updated = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Ubah Nama Folder'),
+          content: TextField(
+            controller: controller,
+            autofocus: true,
+            decoration: const InputDecoration(
+              hintText: 'Nama folder baru',
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text('Batal'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child: const Text('Simpan'),
+            ),
+          ],
+        ),
+      );
+
+      if (updated == true && controller.text.trim().isNotEmpty) {
+        await _folderTagService.renameFolder(folder.id, controller.text.trim());
+      }
+    } finally {
+      controller.dispose();
+    }
+  }
+
+  Future<void> _showCreateTagDialog() async {
+    final controller = TextEditingController();
+    try {
+      final created = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Tag Baru'),
+          content: TextField(
+            controller: controller,
+            autofocus: true,
+            decoration: const InputDecoration(
+              hintText: 'Nama tag (mis. Penting, Kantor)',
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text('Batal'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child: const Text('Simpan'),
+            ),
+          ],
+        ),
+      );
+
+      if (created == true && controller.text.trim().isNotEmpty) {
+        await _folderTagService.createTag(name: controller.text.trim());
+      }
+    } finally {
+      controller.dispose();
+    }
+  }
+
+  void _showManageFoldersAndTagsSheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(ctx).size.height * 0.78,
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(20.0),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const Text(
+                    'Kelola Folder & Tag',
+                    style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+                  ),
+                  const Divider(height: 20),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Daftar Folder',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                      TextButton.icon(
+                        icon: const Icon(Icons.create_new_folder_outlined,
+                            size: 18),
+                        label: const Text('+ Folder Baru'),
+                        onPressed: _showCreateFolderDialog,
+                      ),
+                    ],
+                  ),
+                  StreamBuilder<List<Folder>>(
+                    stream: _folderTagService.watchFolders(),
+                    builder: (context, snapshot) {
+                      final folders = snapshot.data ?? [];
+                      if (folders.isEmpty) {
+                        return const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 8.0),
+                          child: Text(
+                            'Belum ada folder.',
+                            style: TextStyle(color: Colors.grey, fontSize: 12),
+                          ),
+                        );
+                      }
+                      return Column(
+                        children: folders.map((folder) {
+                          return ListTile(
+                            dense: true,
+                            contentPadding: EdgeInsets.zero,
+                            leading: const Icon(Icons.folder_outlined,
+                                color: Colors.deepOrange),
+                            title: Text(folder.name),
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(
+                                  icon:
+                                      const Icon(Icons.edit_outlined, size: 19),
+                                  tooltip: 'Ubah Nama',
+                                  onPressed: () =>
+                                      _showRenameFolderDialog(folder),
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.delete_outline,
+                                      size: 19, color: Colors.red),
+                                  tooltip: 'Hapus Folder',
+                                  onPressed: () async {
+                                    await _folderTagService
+                                        .deleteFolder(folder.id);
+                                    if (!mounted) return;
+                                    if (_selectedFolderId == folder.id) {
+                                      setState(() => _selectedFolderId = null);
+                                    }
+                                  },
+                                ),
+                              ],
+                            ),
+                          );
+                        }).toList(),
+                      );
+                    },
+                  ),
+                  const Divider(height: 24),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Daftar Tag',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                      TextButton.icon(
+                        icon: const Icon(Icons.new_label_outlined, size: 18),
+                        label: const Text('+ Tag Baru'),
+                        onPressed: _showCreateTagDialog,
+                      ),
+                    ],
+                  ),
+                  StreamBuilder<List<Tag>>(
+                    stream: _folderTagService.watchTags(),
+                    builder: (context, snapshot) {
+                      final tags = snapshot.data ?? [];
+                      if (tags.isEmpty) {
+                        return const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 8.0),
+                          child: Text(
+                            'Belum ada tag.',
+                            style: TextStyle(color: Colors.grey, fontSize: 12),
+                          ),
+                        );
+                      }
+                      return Column(
+                        children: tags.map((tag) {
+                          return ListTile(
+                            dense: true,
+                            contentPadding: EdgeInsets.zero,
+                            leading: const Icon(Icons.label_outline,
+                                color: Colors.amber),
+                            title: Text(tag.name),
+                            trailing: IconButton(
+                              icon: const Icon(Icons.delete_outline,
+                                  size: 19, color: Colors.red),
+                              tooltip: 'Hapus Tag',
+                              onPressed: () async {
+                                await _folderTagService.deleteTag(tag.id);
+                                if (!mounted) return;
+                                if (_selectedTagId == tag.id) {
+                                  setState(() => _selectedTagId = null);
+                                }
+                              },
+                            ),
+                          );
+                        }).toList(),
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
   }
 
   Future<void> _handleExportCsv() async {
@@ -292,51 +519,100 @@ class _ScanHistoryPageState extends State<ScanHistoryPage> {
 
     final parsed =
         SmartActionService.instance.parse(scan.rawValue, scan.barcodeFormat);
+    final titleController = TextEditingController(text: scan.title ?? '');
+    final notesController = TextEditingController(text: scan.notes ?? '');
 
-    await showDialog<void>(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) => AlertDialog(
-          title: Text(parsed.displayTitle),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                SelectableText(
-                  scan.rawValue,
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 8),
-                Text('Format: ${scan.barcodeFormat}'),
-                Text('Tipe konten: ${scan.contentType}'),
-                Text('Waktu: ${scan.scannedAt.toLocal().toString().split('.').first}'),
-                if (parsed.attributes.isNotEmpty) ...[
-                  const SizedBox(height: 10),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade100,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.grey.shade300),
+    try {
+      await showDialog<void>(
+        context: context,
+        builder: (ctx) => StatefulBuilder(
+          builder: (ctx, setDialogState) => AlertDialog(
+            title: Text(parsed.displayTitle),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SelectableText(
+                    scan.rawValue,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  Text('Format: ${scan.barcodeFormat}'),
+                  Text('Tipe konten: ${scan.contentType}'),
+                  Text(
+                      'Waktu: ${scan.scannedAt.toLocal().toString().split('.').first}'),
+                  if (parsed.attributes.isNotEmpty) ...[
+                    const SizedBox(height: 10),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade100,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.grey.shade300),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: parsed.attributes.entries.map((e) {
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 2.0),
+                            child: Text(
+                              '${e.key}: ${e.value}',
+                              style: const TextStyle(fontSize: 12),
+                            ),
+                          );
+                        }).toList(),
+                      ),
                     ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: parsed.attributes.entries.map((e) {
-                        return Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 2.0),
-                          child: Text(
-                            '${e.key}: ${e.value}',
-                            style: const TextStyle(fontSize: 12),
-                          ),
-                        );
-                      }).toList(),
+                  ],
+                  const Divider(height: 24),
+                  TextField(
+                    controller: titleController,
+                    decoration: const InputDecoration(
+                      labelText: 'Judul',
+                      hintText: 'Tambahkan judul (opsional)',
+                      border: OutlineInputBorder(),
+                      isDense: true,
                     ),
                   ),
-                ],
-                const Divider(height: 24),
-                DropdownButtonFormField<String?>(
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: notesController,
+                    maxLines: 2,
+                    decoration: const InputDecoration(
+                      labelText: 'Catatan',
+                      hintText: 'Tambahkan catatan...',
+                      border: OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      icon: const Icon(Icons.save_outlined, size: 16),
+                      label: const Text('Simpan Judul & Catatan'),
+                      onPressed: () async {
+                        await _scanService.updateScanDetails(
+                          scanId: scan.id,
+                          title: titleController.text,
+                          notes: notesController.text,
+                        );
+                        if (!mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content:
+                                Text('Judul dan catatan berhasil diperbarui'),
+                            backgroundColor: Colors.green,
+                            duration: Duration(seconds: 2),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String?>(
                   value: currentFolderId,
                   decoration: const InputDecoration(
                     labelText: 'Folder',
@@ -486,6 +762,10 @@ class _ScanHistoryPageState extends State<ScanHistoryPage> {
         ),
       ),
     );
+    } finally {
+      titleController.dispose();
+      notesController.dispose();
+    }
   }
 
   @override
@@ -506,9 +786,9 @@ class _ScanHistoryPageState extends State<ScanHistoryPage> {
             },
           ),
           IconButton(
-            icon: const Icon(Icons.create_new_folder_outlined),
-            tooltip: 'Buat Folder',
-            onPressed: _showCreateFolderDialog,
+            icon: const Icon(Icons.folder_special_outlined),
+            tooltip: 'Kelola Folder & Tag',
+            onPressed: _showManageFoldersAndTagsSheet,
           ),
           IconButton(
             icon: const Icon(Icons.import_export),
@@ -582,6 +862,46 @@ class _ScanHistoryPageState extends State<ScanHistoryPage> {
               );
             },
           ),
+          StreamBuilder<List<Tag>>(
+            stream: _folderTagService.watchTags(),
+            builder: (context, tagSnap) {
+              final tags = tagSnap.data ?? [];
+              if (tags.isEmpty) return const SizedBox.shrink();
+              return SizedBox(
+                height: 44,
+                child: ListView(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: ChoiceChip(
+                        label: const Text('Semua Tag'),
+                        selected: _selectedTagId == null,
+                        onSelected: (_) =>
+                            setState(() => _selectedTagId = null),
+                      ),
+                    ),
+                    ...tags.map(
+                      (tag) => Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: ChoiceChip(
+                          avatar: const Icon(Icons.label_outline, size: 16),
+                          label: Text(tag.name),
+                          selected: _selectedTagId == tag.id,
+                          onSelected: (selected) {
+                            setState(() {
+                              _selectedTagId = selected ? tag.id : null;
+                            });
+                          },
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
           const Divider(height: 1),
           Expanded(
             child: StreamBuilder<List<ScanHistoryData>>(
@@ -589,6 +909,7 @@ class _ScanHistoryPageState extends State<ScanHistoryPage> {
                 query: _searchQuery,
                 favoritesOnly: _favoritesOnly,
                 folderId: _selectedFolderId,
+                tagId: _selectedTagId,
               ),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {

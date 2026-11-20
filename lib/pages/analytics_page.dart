@@ -72,6 +72,12 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
         return Colors.teal;
       case 'vcard':
         return Colors.purple;
+      case 'email':
+        return Colors.indigo;
+      case 'phone':
+        return Colors.green;
+      case 'sms':
+        return Colors.cyan.shade700;
       case 'product':
         return Colors.orange;
       case 'geo':
@@ -89,6 +95,12 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
         return Icons.wifi;
       case 'vcard':
         return Icons.person;
+      case 'email':
+        return Icons.email;
+      case 'phone':
+        return Icons.call;
+      case 'sms':
+        return Icons.message;
       case 'product':
         return Icons.shopping_bag;
       case 'geo':

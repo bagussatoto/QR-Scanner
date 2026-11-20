@@ -148,6 +148,77 @@ void main() {
       expect(queryFolder.single.title, equals('Dart Docs'));
     });
 
+    test('searchScans filters by tagId and combines with folder/query filters',
+        () async {
+      final workFolder = await folderTagService.createFolder(name: 'Office');
+      final urgentTag = await folderTagService.createTag(name: 'Urgent');
+
+      final s1 = await scanService.insertScan(
+        rawValue: 'https://dart.dev',
+        barcodeFormat: 'QR_CODE',
+        title: 'Dart Portal',
+        folderId: workFolder.id,
+      );
+      await scanService.insertScan(
+        rawValue: 'https://pub.dev',
+        barcodeFormat: 'QR_CODE',
+        title: 'Pub Packages',
+        folderId: workFolder.id,
+      );
+      await folderTagService.assignTagToScan(scanId: s1.id, tagId: urgentTag.id);
+
+      final taggedOnly = await scanService.searchScans(tagId: urgentTag.id);
+      expect(taggedOnly, hasLength(1));
+      expect(taggedOnly.single.id, equals(s1.id));
+
+      final combinedMatch = await scanService.searchScans(
+        query: 'portal',
+        folderId: workFolder.id,
+        tagId: urgentTag.id,
+      );
+      expect(combinedMatch, hasLength(1));
+
+      final combinedMiss = await scanService.searchScans(
+        query: 'packages',
+        tagId: urgentTag.id,
+      );
+      expect(combinedMiss, isEmpty);
+    });
+
+    test('updateScanDetails updates title & notes and clears blank values to null',
+        () async {
+      final scan = await scanService.insertScan(
+        rawValue: 'WIFI:S:Guest;T:WPA;P:pass123;;',
+        barcodeFormat: 'QR_CODE',
+        contentType: 'wifi',
+      );
+
+      await scanService.updateScanDetails(
+        scanId: scan.id,
+        title: 'Wi-Fi Tamu Lantai 2',
+        notes: 'Untuk tamu meeting mingguan',
+      );
+
+      final updated = (await scanService.fetchAllScans()).single;
+      expect(updated.title, equals('Wi-Fi Tamu Lantai 2'));
+      expect(updated.notes, equals('Untuk tamu meeting mingguan'));
+
+      // Verify search matches the newly added notes
+      final foundByNote = await scanService.searchScans(query: 'mingguan');
+      expect(foundByNote, hasLength(1));
+      expect(foundByNote.single.id, equals(scan.id));
+
+      // Clear title and notes with blank strings -> stored as null
+      await scanService.updateScanDetails(
+        scanId: scan.id,
+        title: '   ',
+        notes: '',
+      );
+      final cleared = (await scanService.fetchAllScans()).single;
+      expect(cleared.title, isNull);
+      expect(cleared.notes, isNull);
+    });
+
     test('assignFolder updates the folder reference', () async {
       final personal = await folderTagService.createFolder(name: 'Personal');
       final scan = await scanService.insertScan(
@@ -219,6 +290,27 @@ void main() {
       final remaining = await folderTagService.getTagsForScan(scan.id);
       expect(remaining, hasLength(1));
       expect(remaining.single.name, equals('dart'));
+    });
+
+    test('renameFolder and deleteTag update folder name and cascade tag deletion',
+        () async {
+      final folder = await folderTagService.createFolder(name: 'Old Name');
+      await folderTagService.renameFolder(folder.id, 'New Name');
+
+      final renamedFolders = await folderTagService.getAllFolders();
+      expect(renamedFolders.single.name, equals('New Name'));
+
+      final scan = await scanService.insertScan(
+        rawValue: 'https://example.org',
+        barcodeFormat: 'QR_CODE',
+      );
+      final tag = await folderTagService.createTag(name: 'TempTag');
+      await folderTagService.assignTagToScan(scanId: scan.id, tagId: tag.id);
+
+      await folderTagService.deleteTag(tag.id);
+
+      expect(await folderTagService.getAllTags(), isEmpty);
+      expect(await folderTagService.getTagsForScan(scan.id), isEmpty);
     });
 
     test('deleteFolder soft-deletes the folder and detaches its scans',
@@ -469,6 +561,74 @@ void main() {
       expect(restoredQRs, hasLength(1));
       expect(restoredQRs.single.payload, equals('https://dart.dev'));
       expect(restoredQRs.single.fgColorHex, equals('#1976D2'));
+
+      await freshDb.close();
+    });
+
+    test(
+        'exportToJson and importFromJson restore folders, tags, scan-tag links, and prevent duplicates on repeated restore',
+        () async {
+      final workFolder = await folderTagService.createFolder(name: 'Work');
+      final tagImportant = await folderTagService.createTag(name: 'Important');
+      final s1 = await scanService.insertScan(
+        rawValue: 'https://flutter.dev/docs',
+        barcodeFormat: 'QR_CODE',
+        contentType: 'url',
+        title: 'Docs',
+        notes: 'Reference link',
+        folderId: workFolder.id,
+      );
+      await folderTagService.assignTagToScan(
+        scanId: s1.id,
+        tagId: tagImportant.id,
+      );
+      await qrService.insertGeneratedQR(
+        payload: 'https://flutter.dev',
+        contentType: 'url',
+      );
+
+      final backupJson = await exportService.exportToJson();
+      expect(backupJson, contains('"tags"'));
+      expect(backupJson, contains('"scanTags"'));
+
+      final freshDb = AppDatabase.forTesting(NativeDatabase.memory());
+      final freshScanService = ScanService.forTesting(freshDb);
+      final freshFolderTagService =
+          FolderTagService.forTesting(freshDb, freshScanService);
+      final freshQrService =
+          QRGeneratorService.forTesting(freshDb, freshScanService);
+      final freshExportService = ExportService.forTesting(
+        freshDb,
+        scanService: freshScanService,
+        qrService: freshQrService,
+        folderTagService: freshFolderTagService,
+      );
+
+      // First restore: 1 folder + 1 tag + 1 scan + 1 generatedQR = 4 entities
+      final firstCount = await freshExportService.importFromJson(backupJson);
+      expect(firstCount, equals(4));
+
+      final restoredFolders = await freshFolderTagService.getAllFolders();
+      final restoredTags = await freshFolderTagService.getAllTags();
+      final restoredScans = await freshScanService.fetchAllScans();
+      expect(restoredFolders, hasLength(1));
+      expect(restoredTags, hasLength(1));
+      expect(restoredScans, hasLength(1));
+      expect(restoredScans.single.folderId, equals(restoredFolders.single.id));
+      expect(restoredScans.single.notes, equals('Reference link'));
+
+      final linkedTags =
+          await freshFolderTagService.getTagsForScan(restoredScans.single.id);
+      expect(linkedTags, hasLength(1));
+      expect(linkedTags.single.name, equals('Important'));
+
+      // Second restore of the same JSON must be idempotent (0 new inserts)
+      final secondCount = await freshExportService.importFromJson(backupJson);
+      expect(secondCount, equals(0));
+      expect(await freshFolderTagService.getAllFolders(), hasLength(1));
+      expect(await freshFolderTagService.getAllTags(), hasLength(1));
+      expect(await freshScanService.fetchAllScans(), hasLength(1));
+      expect(await freshQrService.fetchAllGeneratedQRs(), hasLength(1));
 
       await freshDb.close();
     });
