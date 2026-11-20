@@ -12,7 +12,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Install SQLite3 native library for Linux runner
         run: sudo apt-get update && sudo apt-get install -y libsqlite3-dev
