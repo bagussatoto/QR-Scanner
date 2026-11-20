@@ -16,6 +16,9 @@ dependencies:
   # Modern QR & Barcode Camera Scanner (Google ML Kit based)
   mobile_scanner: ^5.2.3
 
+  # Pick QR/Barcode images from device photo gallery
+  image_picker: ^1.1.2
+
   # QR Code generation
   qr_flutter: ^4.1.0
 

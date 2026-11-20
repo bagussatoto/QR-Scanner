@@ -46,6 +46,19 @@ class HomePageState extends State<HomePage> {
     }
   }
 
+  Future<void> _scanFromGallery() async {
+    final scanned = await Navigator.of(context).push<String>(
+      MaterialPageRoute(
+        builder: (_) => const ScannerPage(autoOpenGallery: true),
+      ),
+    );
+    if (scanned != null && scanned.isNotEmpty) {
+      setState(() {
+        result = scanned;
+      });
+    }
+  }
+
   void _openHistory() {
     Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => const ScanHistoryPage()),
@@ -128,6 +141,16 @@ class HomePageState extends State<HomePage> {
               onTap: () {
                 Navigator.of(context).pop();
                 _scanQR();
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined,
+                  color: Colors.teal),
+              title: const Text('Scan dari Galeri'),
+              subtitle: const Text('Pindai QR/Barcode dari file foto'),
+              onTap: () {
+                Navigator.of(context).pop();
+                _scanFromGallery();
               },
             ),
             ListTile(
@@ -229,9 +252,20 @@ class HomePageState extends State<HomePage> {
                 ),
               ),
               const SizedBox(height: 24),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
+              Wrap(
+                spacing: 10,
+                runSpacing: 8,
+                alignment: WrapAlignment.center,
                 children: [
+                  OutlinedButton.icon(
+                    icon: const Icon(Icons.photo_library_outlined,
+                        color: Colors.teal),
+                    label: const Text('Galeri'),
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: Colors.teal),
+                    ),
+                    onPressed: _scanFromGallery,
+                  ),
                   OutlinedButton.icon(
                     icon:
                         const Icon(Icons.dynamic_feed, color: Colors.deepOrange),
@@ -241,7 +275,6 @@ class HomePageState extends State<HomePage> {
                     ),
                     onPressed: _scanBatch,
                   ),
-                  const SizedBox(width: 12),
                   OutlinedButton.icon(
                     icon: const Icon(Icons.bar_chart, color: Colors.blue),
                     label: const Text('Statistik'),

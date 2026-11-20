@@ -157,7 +157,7 @@
 </tr>
 <tr>
 <td align="left"><strong>Scanner &amp; Generator</strong></td>
-<td align="left"><code>mobile_scanner ^5.2.3</code>, <code>qr_flutter ^4.1.0</code>, <code>url_launcher ^6.2.5</code></td>
+<td align="left"><code>mobile_scanner ^5.2.3</code>, <code>image_picker ^1.1.2</code>, <code>qr_flutter ^4.1.0</code>, <code>url_launcher ^6.2.5</code></td>
 </tr>
 <tr>
 <td align="left"><strong>Target Platform</strong></td>
@@ -208,7 +208,7 @@
 <pre><code class="language-mermaid">flowchart TB
     subgraph L1[&quot;1. Presentation / UI Layer&quot;]
         HP[&quot;HomePage (lib/main.dart)&lt;br/&gt;• Hub Utama, Hasil Terakhir &amp; Drawer Navigasi&quot;]
-        SCP[&quot;ScannerPage (lib/pages/scanner_page.dart)&lt;br/&gt;• Viewfinder mobile_scanner v5, Flash &amp; Flip Kamera&lt;br/&gt;• Mode Standar &amp; Batch Scan + Modal Aksi Cerdas&quot;]
+        SCP[&quot;ScannerPage (lib/pages/scanner_page.dart)&lt;br/&gt;• Viewfinder mobile_scanner v5, Flash, Flip &amp; Scan Galeri&lt;br/&gt;• Mode Standar &amp; Batch Scan + Modal Aksi Cerdas&quot;]
         SHP[&quot;ScanHistoryPage (lib/pages/scan_history_page.dart)&lt;br/&gt;• Search Bar, Filter Favorit/Folder/Tag&lt;br/&gt;• Edit Judul/Catatan, Kelola Folder &amp; Tag, Ekspor/Restore&quot;]
         QGP[&quot;QRGeneratorPage (lib/pages/qr_generator_page.dart)&lt;br/&gt;• Pembuat QR Kustom (Warna FG/BG &amp; ECC L/M/Q/H)&lt;br/&gt;• Tab Riwayat QR Dibuat&quot;]
         ANP[&quot;AnalyticsPage (lib/pages/analytics_page.dart)&lt;br/&gt;• KPI Ringkas, Distribusi Kategori &amp; Format Barcode&quot;]
@@ -264,8 +264,8 @@
 <p>Alur saat pengguna membuka <code>ScannerPage</code> hingga data dianalisis, ditindaklanjuti, dan tersimpan:</p>
 <pre><code class="language-mermaid">flowchart TD
     Start([&quot;Buka Aplikasi&quot;]) --&gt; Home[&quot;Layar Utama (HomePage)&quot;]
-    Home --&gt; PressScan[&quot;Pilih &#39;Scan Kamera&#39; atau &#39;Mode Batch&#39;&quot;]
-    PressScan --&gt; CamOpen[&quot;Buka ScannerPage (mobile_scanner v5)&lt;br/&gt;• Kontrol Flash &amp; Ganti Kamera&lt;br/&gt;• Segmented Toggle Standar / Batch&quot;]
+    Home --&gt; PressScan[&quot;Pilih &#39;Scan Kamera&#39;, &#39;Galeri&#39;, atau &#39;Mode Batch&#39;&quot;]
+    PressScan --&gt; CamOpen[&quot;Buka ScannerPage (mobile_scanner v5)&lt;br/&gt;• Kamera Viewfinder atau Pilih Foto Galeri (analyzeImage)&lt;br/&gt;• Kontrol Flash, Ganti Kamera &amp; Toggle Standar / Batch&quot;]
 
     CamOpen --&gt; Capture{&quot;BarcodeCapture.onDetect()&quot;}
     Capture -- &quot;Mode Batch Aktif&quot; --&gt; Debounce{&quot;Duplikat &lt; 1.5 detik?&quot;}
@@ -511,7 +511,7 @@
 <li>Memverifikasi kompilasi Android via <code>flutter build apk --debug</code>.</li>
 </ul>
 </li>
-<li><strong>Continuous Delivery (<a href="../.github/workflows/release.yml">.github/workflows/release.yml</a>)</strong>: Berjalan otomatis setiap ada <em>push</em> tag <code>v*</code> untuk mempublikasikan <strong>GitHub Release</strong> beserta berkas PDF dokumentasi proyek.</li>
+<li><strong>Continuous Delivery (<a href="../.github/workflows/release.yml">.github/workflows/release.yml</a>)</strong>: Berjalan otomatis setiap ada <em>push</em> tag <code>v*</code> untuk memvalidasi analisis/tes, membangun <strong>Android Release APK</strong> (<code>flutter build apk --release</code>), serta mempublikasikan <strong>GitHub Release</strong> dengan lampiran <code>.apk</code> dan <code>DOKUMENTASI_PROYEK.pdf</code>.</li>
 </ol>
 <hr>
 <h2>8. Panduan Instalasi &amp; Deployment</h2>

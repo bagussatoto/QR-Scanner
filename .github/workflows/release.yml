@@ -1,4 +1,4 @@
-name: Create Release
+name: Build APK & Create Release
 
 on:
   push:
@@ -15,18 +15,52 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Install SQLite3 native library for Linux runner
+        run: sudo apt-get update && sudo apt-get install -y libsqlite3-dev
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Generate Drift database code
+        run: dart run build_runner build --delete-conflicting-outputs
+
+      - name: Analyze Dart code
+        run: flutter analyze --no-fatal-infos
+
+      - name: Run unit & widget tests
+        run: flutter test
+
+      - name: Build Android Release APK
+        run: flutter build apk --release
+
+      - name: Prepare versioned APK asset
+        run: cp build/app/outputs/flutter-apk/app-release.apk "QR-Scanner-${GITHUB_REF_NAME}.apk"
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           name: Release ${{ github.ref_name }}
           body: |
             ## 🚀 QR-Scanner ${{ github.ref_name }}
-            
-            Aplikasi Flutter QR & Barcode Scanner modern dengan enkripsi basis data SQLite (SQLCipher), pemindai kamera interaktif, mode batch scan, dan ekspor data lengkap.
-            
+
+            Aplikasi Flutter QR & Barcode Scanner modern dengan enkripsi basis data SQLite (SQLCipher), pemindai kamera interaktif, scan dari galeri foto, mode batch scan, dan ekspor data lengkap.
+
             ### 🌟 Fitur Utama pada Versi Ini:
             - **Enkripsi Data At-Rest (SQLCipher AES-256)**: Seluruh riwayat scan tersimpan aman secara offline dengan PBKDF2 derivation key dari Android Keystore / iOS Keychain.
             - **Scanner Kamera Canggih (`mobile_scanner`)**: Deteksi instan multi-format, kontrol flash/senter, pergantian kamera depan/belakang, dan animated viewfinder overlay.
+            - **Scan dari Galeri Foto (`image_picker`)**: Pindai QR code atau barcode langsung dari gambar/tangkapan layar di galeri perangkat.
             - **Mode Pemindaian Berkelanjutan (Batch Scanning)**: Pindai puluhan kode tanpa jeda dengan debounce anti-duplikasi dan baki sesi pemindaian.
             - **Aksi Cerdas Kontekstual (Smart Actions)**:
               - 🌐 **URL**: Buka langsung di browser native.
@@ -35,10 +69,11 @@ jobs:
               - 📍 **Lokasi Geografis**: Buka koordinat langsung di Google Maps.
               - 📦 **Barcode Produk (EAN-13, UPC)**: Pencarian informasi dan harga produk di Google.
             - **QR Code Generator Kustom (`qr_flutter`)**: Kustomisasi warna foreground/background, level toleransi eror (L/M/Q/H), serta riwayat pembuatan.
-            - **Ekspor & Backup Data (RFC 4180 CSV & JSON)**: Ekspor tabel untuk Microsoft Excel / Google Sheets, serta backup & restore penuh.
+            - **Ekspor & Backup Data (RFC 4180 CSV & JSON Idempoten)**: Ekspor tabel untuk Microsoft Excel / Google Sheets, serta backup & restore penuh folder, tag, scan, dan QR dibuat.
             - **Dashboard Statistik & Analisis**: Visualisasi metrik KPI, distribusi kategori konten, dan breakdown format barcode.
-            - **Dokumentasi Teknis Resmi**: Buku panduan lengkap arsitektur, flowcharts, ERD, dan berkas PDF terlampir.
+            - **Berkas Rilis Terlampir**: Berkas instalasi Android (`QR-Scanner-${{ github.ref_name }}.apk`) dan dokumentasi teknis resmi (`DOKUMENTASI_PROYEK.pdf`).
           files: |
             doc/DOKUMENTASI_PROYEK.pdf
+            QR-Scanner-${{ github.ref_name }}.apk
           draft: false
           prerelease: false

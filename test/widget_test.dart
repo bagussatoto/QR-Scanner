@@ -17,6 +17,7 @@ void main() {
 
     expect(find.text('QR Scanner'), findsOneWidget);
     expect(find.text('Scan Kamera'), findsOneWidget);
+    expect(find.text('Galeri'), findsOneWidget);
     expect(find.text('Mode Batch'), findsOneWidget);
     expect(find.text('Statistik'), findsOneWidget);
   });

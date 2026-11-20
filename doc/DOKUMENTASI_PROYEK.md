@@ -12,7 +12,7 @@
 | **Repositori GitHub** | [bagussatoto/QR-Scanner](https://github.com/bagussatoto/QR-Scanner) |
 | **Versi Aplikasi** | `v1.2.0+3` |
 | **Framework Utama** | Flutter (`sdk: flutter`, Dart `>=3.0.0 <4.0.0`) |
-| **Scanner & Generator** | `mobile_scanner ^5.2.3`, `qr_flutter ^4.1.0`, `url_launcher ^6.2.5` |
+| **Scanner & Generator** | `mobile_scanner ^5.2.3`, `image_picker ^1.1.2`, `qr_flutter ^4.1.0`, `url_launcher ^6.2.5` |
 | **Target Platform** | Android (API Level 21+, Embedding v2) & iOS (iOS 12.0+) |
 | **Engine Basis Data** | SQLite Terenkripsi via **SQLCipher** (AES-256) & **Drift ORM** |
 | **Keamanan Kunci** | Android Keystore / iOS Keychain via `FlutterSecureStorage` |
@@ -57,7 +57,7 @@ Aplikasi dibangun menggunakan pola **Layered Clean Architecture** yang memisahka
 flowchart TB
     subgraph L1["1. Presentation / UI Layer"]
         HP["HomePage (lib/main.dart)<br/>• Hub Utama, Hasil Terakhir & Drawer Navigasi"]
-        SCP["ScannerPage (lib/pages/scanner_page.dart)<br/>• Viewfinder mobile_scanner v5, Flash & Flip Kamera<br/>• Mode Standar & Batch Scan + Modal Aksi Cerdas"]
+        SCP["ScannerPage (lib/pages/scanner_page.dart)<br/>• Viewfinder mobile_scanner v5, Flash, Flip & Scan Galeri<br/>• Mode Standar & Batch Scan + Modal Aksi Cerdas"]
         SHP["ScanHistoryPage (lib/pages/scan_history_page.dart)<br/>• Search Bar, Filter Favorit/Folder/Tag<br/>• Edit Judul/Catatan, Kelola Folder & Tag, Ekspor/Restore"]
         QGP["QRGeneratorPage (lib/pages/qr_generator_page.dart)<br/>• Pembuat QR Kustom (Warna FG/BG & ECC L/M/Q/H)<br/>• Tab Riwayat QR Dibuat"]
         ANP["AnalyticsPage (lib/pages/analytics_page.dart)<br/>• KPI Ringkas, Distribusi Kategori & Format Barcode"]
@@ -118,8 +118,8 @@ Alur saat pengguna membuka `ScannerPage` hingga data dianalisis, ditindaklanjuti
 ```mermaid
 flowchart TD
     Start(["Buka Aplikasi"]) --> Home["Layar Utama (HomePage)"]
-    Home --> PressScan["Pilih 'Scan Kamera' atau 'Mode Batch'"]
-    PressScan --> CamOpen["Buka ScannerPage (mobile_scanner v5)<br/>• Kontrol Flash & Ganti Kamera<br/>• Segmented Toggle Standar / Batch"]
+    Home --> PressScan["Pilih 'Scan Kamera', 'Galeri', atau 'Mode Batch'"]
+    PressScan --> CamOpen["Buka ScannerPage (mobile_scanner v5)<br/>• Kamera Viewfinder atau Pilih Foto Galeri (analyzeImage)<br/>• Kontrol Flash, Ganti Kamera & Toggle Standar / Batch"]
 
     CamOpen --> Capture{"BarcodeCapture.onDetect()"}
     Capture -- "Mode Batch Aktif" --> Debounce{"Duplikat < 1.5 detik?"}
@@ -371,7 +371,7 @@ Proyek dilengkapi dengan pipeline jaminan kualitas (*Quality Assurance*) dan ril
    - Menjalankan analisis statis `flutter analyze --no-fatal-infos`.
    - Mengeksekusi seluruh pengujian `flutter test` (`database_test.dart` & `widget_test.dart`).
    - Memverifikasi kompilasi Android via `flutter build apk --debug`.
-2. **Continuous Delivery ([.github/workflows/release.yml](../.github/workflows/release.yml))**: Berjalan otomatis setiap ada *push* tag `v*` untuk mempublikasikan **GitHub Release** beserta berkas PDF dokumentasi proyek.
+2. **Continuous Delivery ([.github/workflows/release.yml](../.github/workflows/release.yml))**: Berjalan otomatis setiap ada *push* tag `v*` untuk memvalidasi analisis/tes, membangun **Android Release APK** (`flutter build apk --release`), serta mempublikasikan **GitHub Release** dengan lampiran `.apk` dan `DOKUMENTASI_PROYEK.pdf`.
 
 ---
 

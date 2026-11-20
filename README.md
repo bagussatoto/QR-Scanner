@@ -37,6 +37,7 @@ A cross-platform Flutter application for scanning and generating QR codes & barc
 
 ### Current Capabilities
 - [x] Modern camera QR & barcode scanning powered by `mobile_scanner` v5 (custom viewfinder overlay, animated laser line, torch toggle, front/back camera switch)
+- [x] Scan QR/barcodes directly from device photo gallery (`image_picker` + `analyzeImage()`)
 - [x] Continuous **Batch Scanning** mode with duplicate-debounce protection and an interactive session tray
 - [x] **Smart Contextual Actions** (`url_launcher`) for `URL`, `Wi-Fi` (one-tap password copy), `vCard` contacts, `Phone`, `SMS`, `Email`, `Geo` (Google Maps), and `Product` barcodes with action logging (`SCAN_ACTIONS`)
 - [x] Encrypted offline-first local database (**Drift ORM + SQLCipher AES-256**) with hardware-backed keys via `flutter_secure_storage` (Android Keystore / iOS Keychain)
@@ -44,13 +45,12 @@ A cross-platform Flutter application for scanning and generating QR codes & barc
 - [x] Built-in customizable **QR Code Generator** (`qr_flutter`) with foreground/background colors, error correction levels (`L`/`M`/`Q`/`H`), and persistent history
 - [x] **Analytics & Statistics Dashboard** summarizing KPIs, daily/weekly scans, content-type distribution, barcode formats, and text summary sharing
 - [x] **RFC 4180 CSV** export and **idempotent JSON** backup & restore (including folders, tags, scan-tag links, scans, and generated QRs)
-- [x] Automated **GitHub Actions CI/CD** (`flutter analyze`, unit & widget tests, Android debug APK build, and tag-triggered GitHub Releases)
+- [x] Automated **GitHub Actions CI/CD** (`flutter analyze`, unit & widget tests, Android debug/release APK build, and tag-triggered GitHub Releases with APK & PDF assets)
 
 ### Planned Enhancements
-- [ ] Scan QR/barcodes directly from device photo gallery (`image_picker` + `analyzeImage()`)
 - [ ] SQLite composite indexes and `FTS5` full-text search virtual table (`scan_history_fts`)
 - [ ] Offline-first cloud synchronization (`SYNC_QUEUE` outbox worker, PostgreSQL/Supabase, Auth & Row-Level Security)
-- [ ] QR image PNG export/share and automated APK attachment on GitHub Releases
+- [ ] QR image PNG export & share directly from generator history
 
 ---
 
@@ -59,7 +59,8 @@ A cross-platform Flutter application for scanning and generating QR codes & barc
 | Component | Technology / Package | Purpose |
 | :--- | :--- | :--- |
 | **Framework** | Flutter (`sdk: flutter`, Dart `>=3.0.0`) | Cross-platform Material 3 UI & runtime |
-| **Camera Scanner** | `mobile_scanner: ^5.2.3` | ML Kit camera scanning, torch & camera direction control |
+| **Camera Scanner** | `mobile_scanner: ^5.2.3` | ML Kit camera & static image barcode scanning |
+| **Gallery Picker** | `image_picker: ^1.1.2` | Selecting QR/barcode photos from device gallery |
 | **QR Generator** | `qr_flutter: ^4.1.0` | Customizable vector QR code rendering |
 | **External Actions** | `url_launcher: ^6.2.5` | Launching browser, phone dialer, SMS, email & Google Maps |
 | **Local Database** | `drift: ^2.12.0` + `sqlcipher_flutter_libs: ^0.6.0` | Type-safe relational SQLite ORM with AES-256 encryption |
@@ -175,6 +176,8 @@ Ensure `ios/Runner/Info.plist` includes camera permission and URL query schemes 
 ```xml
 <key>NSCameraUsageDescription</key>
 <string>Camera permission is required for QR scanning.</string>
+<key>NSPhotoLibraryUsageDescription</key>
+<string>Photo library permission is required to scan QR codes and barcodes from gallery images.</string>
 <key>LSApplicationQueriesSchemes</key>
 <array>
     <string>https</string>

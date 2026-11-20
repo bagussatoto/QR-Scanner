@@ -10,14 +10,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutterqrscan/services/scan_service.dart';
 import 'package:flutterqrscan/services/smart_action_service.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
 class ScannerPage extends StatefulWidget {
   final bool initialBatchMode;
+  final bool autoOpenGallery;
 
   const ScannerPage({
     Key? key,
     this.initialBatchMode = false,
+    this.autoOpenGallery = false,
   }) : super(key: key);
 
   @override
@@ -29,6 +32,9 @@ class _ScannerPageState extends State<ScannerPage>
   late MobileScannerController _controller;
   late AnimationController _animController;
   late Animation<double> _scanAnimation;
+
+  final ImagePicker _imagePicker = ImagePicker();
+  bool _isAnalyzingImage = false;
 
   late bool _isBatchMode;
   bool _isProcessingSingle = false;
@@ -59,6 +65,56 @@ class _ScannerPageState extends State<ScannerPage>
     _scanAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(parent: _animController, curve: Curves.easeInOut),
     );
+
+    if (widget.autoOpenGallery) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _scanFromGallery();
+      });
+    }
+  }
+
+  Future<void> _scanFromGallery() async {
+    if (_isAnalyzingImage) return;
+
+    try {
+      final XFile? image = await _imagePicker.pickImage(
+        source: ImageSource.gallery,
+      );
+      if (image == null || !mounted) return;
+
+      setState(() {
+        _isAnalyzingImage = true;
+      });
+
+      final BarcodeCapture? capture =
+          await _controller.analyzeImage(image.path);
+      if (!mounted) return;
+
+      if (capture != null &&
+          capture.barcodes.isNotEmpty &&
+          (capture.barcodes.first.rawValue ?? '').isNotEmpty) {
+        _onDetect(capture);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Tidak ditemukan QR Code atau Barcode pada gambar tersebut.',
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Gagal memindai gambar: $e')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isAnalyzingImage = false;
+        });
+      }
+    }
   }
 
   @override
@@ -832,6 +888,43 @@ class _ScannerPageState extends State<ScannerPage>
                     ),
                   ],
                 ],
+              ),
+            ),
+          ),
+
+          // Gallery image scan button
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 96,
+            child: Center(
+              child: ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.black87,
+                  foregroundColor: Colors.white,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(24),
+                    side: const BorderSide(color: Colors.white24),
+                  ),
+                ),
+                icon: _isAnalyzingImage
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Icon(Icons.photo_library_outlined, size: 18),
+                label: Text(
+                  _isAnalyzingImage
+                      ? 'Memindai Gambar...'
+                      : 'Scan dari Galeri',
+                ),
+                onPressed: _isAnalyzingImage ? null : _scanFromGallery,
               ),
             ),
           ),
