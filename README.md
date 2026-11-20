@@ -7,7 +7,7 @@
 [![Platform](https://img.shields.io/badge/Platform-Android%20%7C%20iOS-success)](#getting-started)
 [![GitHub Stars](https://img.shields.io/github/stars/bagussatoto/QR-Scanner?style=social)](https://github.com/bagussatoto/QR-Scanner)
 
-A lightweight, cross-platform Flutter mobile application for scanning QR codes and 2D barcodes with native camera permission handling and clean error recovery.
+A cross-platform Flutter application for scanning and generating QR codes & barcodes with encrypted offline-first storage (Drift + SQLCipher), continuous batch scanning, smart contextual actions, analytics, and CSV/JSON backup & restore.
 
 ---
 
@@ -36,17 +36,21 @@ A lightweight, cross-platform Flutter mobile application for scanning QR codes a
 ## Features
 
 ### Current Capabilities
-- [x] Scan QR codes and 2D barcodes via the device camera
-- [x] Native camera permission checks and denial handling (`CameraAccessDenied`)
-- [x] Graceful back-button / scan cancellation handling (`FormatException`)
-- [x] Cross-platform Material UI for Android and iOS
+- [x] Modern camera QR & barcode scanning powered by `mobile_scanner` v5 (custom viewfinder overlay, animated laser line, torch toggle, front/back camera switch)
+- [x] Continuous **Batch Scanning** mode with duplicate-debounce protection and an interactive session tray
+- [x] **Smart Contextual Actions** (`url_launcher`) for `URL`, `Wi-Fi` (one-tap password copy), `vCard` contacts, `Phone`, `SMS`, `Email`, `Geo` (Google Maps), and `Product` barcodes with action logging (`SCAN_ACTIONS`)
+- [x] Encrypted offline-first local database (**Drift ORM + SQLCipher AES-256**) with hardware-backed keys via `flutter_secure_storage` (Android Keystore / iOS Keychain)
+- [x] Scan history management: real-time keyword search, favorite toggle, folder & tag assignment/filtering, folder renaming, tag deletion, and editable title & notes
+- [x] Built-in customizable **QR Code Generator** (`qr_flutter`) with foreground/background colors, error correction levels (`L`/`M`/`Q`/`H`), and persistent history
+- [x] **Analytics & Statistics Dashboard** summarizing KPIs, daily/weekly scans, content-type distribution, barcode formats, and text summary sharing
+- [x] **RFC 4180 CSV** export and **idempotent JSON** backup & restore (including folders, tags, scan-tag links, scans, and generated QRs)
+- [x] Automated **GitHub Actions CI/CD** (`flutter analyze`, unit & widget tests, Android debug APK build, and tag-triggered GitHub Releases)
 
 ### Planned Enhancements
-- [ ] Local scan history persistence (SQLite / Drift)
-- [ ] Scan categorization with folders, tags, and favorites
-- [ ] Built-in QR code generator & export (CSV / JSON)
-- [ ] Offline-first cloud synchronization across devices
-- [ ] Migration to modern maintained barcode scanner plugins (e.g., `mobile_scanner`)
+- [ ] Scan QR/barcodes directly from device photo gallery (`image_picker` + `analyzeImage()`)
+- [ ] SQLite composite indexes and `FTS5` full-text search virtual table (`scan_history_fts`)
+- [ ] Offline-first cloud synchronization (`SYNC_QUEUE` outbox worker, PostgreSQL/Supabase, Auth & Row-Level Security)
+- [ ] QR image PNG export/share and automated APK attachment on GitHub Releases
 
 ---
 
@@ -54,34 +58,54 @@ A lightweight, cross-platform Flutter mobile application for scanning QR codes a
 
 | Component | Technology / Package | Purpose |
 | :--- | :--- | :--- |
-| **Framework** | Flutter (`sdk: flutter`) | Cross-platform UI & runtime |
-| **Scanner Plugin** | `barcode_scan: ^1.0.0` | Native Android/iOS camera barcode scanning |
-| **Icons** | `cupertino_icons: ^1.0.0` | iOS-style iconography |
-| **Testing** | `flutter_test` | Widget & unit test framework |
-| **Planned Local DB** | SQLite (`drift` / `sqflite`) | Offline-first scan history & metadata storage |
+| **Framework** | Flutter (`sdk: flutter`, Dart `>=3.0.0`) | Cross-platform Material 3 UI & runtime |
+| **Camera Scanner** | `mobile_scanner: ^5.2.3` | ML Kit camera scanning, torch & camera direction control |
+| **QR Generator** | `qr_flutter: ^4.1.0` | Customizable vector QR code rendering |
+| **External Actions** | `url_launcher: ^6.2.5` | Launching browser, phone dialer, SMS, email & Google Maps |
+| **Local Database** | `drift: ^2.12.0` + `sqlcipher_flutter_libs: ^0.6.0` | Type-safe relational SQLite ORM with AES-256 encryption |
+| **Key Management** | `flutter_secure_storage: ^9.0.0` | Hardware-backed encryption key storage (Keystore / Keychain) |
+| **Testing** | `flutter_test`, `drift_dev`, `build_runner` | In-memory SQLite unit tests & widget smoke tests |
 | **Planned Cloud DB** | PostgreSQL (Supabase) | Multi-device synchronization & backup |
 
 ```text
 QR-Scanner/
-├── .github/                  # Dependabot, funding & GitHub Actions CI workflow
-├── android/                  # Android native wrapper & AndroidManifest.xml
-├── doc/                      # Technical & user documentation
-│   ├── DATABASE.md           # Data dictionary & SQLite/PostgreSQL DDL scripts
-│   ├── DOKUMENTASI_PROYEK.md # Master project documentation & architecture dossier
-│   ├── FLOWCHART.md          # System architecture & operational flowcharts
-│   ├── PANDUAN_PENGGUNAAN.md # End-user & developer usage guide
-│   └── RINGKASAN_PERBAIKAN.md# Comprehensive project improvement summary
-├── ios/                      # iOS native Runner & Info.plist
+├── .github/
+│   └── workflows/
+│       ├── flutter_test.yml   # CI: analyze, build_runner, unit/widget tests & APK build
+│       └── release.yml        # CD: auto-publish GitHub Release with PDF asset on v* tag
+├── android/                   # Android Embedding v2 + Gradle 8.5.2 wrapper & Manifest
+├── doc/                       # Technical & user documentation
+│   ├── DATABASE.md            # Data dictionary & SQLite/PostgreSQL DDL scripts
+│   ├── DOKUMENTASI_PROYEK.md  # Master project documentation & architecture dossier
+│   ├── DOKUMENTASI_PROYEK.html# Styled HTML export of master documentation
+│   ├── DOKUMENTASI_PROYEK.pdf # Printable PDF export of master documentation
+│   ├── FLOWCHART.md           # System architecture & operational flowcharts
+│   ├── PANDUAN_PENGGUNAAN.md  # End-user & developer usage guide
+│   └── RINGKASAN_PERBAIKAN.md # Comprehensive project improvement summary
+├── ios/                       # iOS Runner, Podfile (iOS 12.0+) & Info.plist
 ├── lib/
-│   ├── database/             # Drift ORM tables & SQLCipher database singleton
-│   ├── pages/                # ScanHistoryPage UI (search, filter, tags)
-│   ├── services/             # ScanService & FolderTagService business logic
-│   └── main.dart             # Application entry point & scanner UI
+│   ├── database/
+│   │   ├── database.dart      # Singleton AppDatabase & SQLCipher connection setup
+│   │   └── tables.dart        # Drift ORM schema (9 relational tables)
+│   ├── pages/
+│   │   ├── analytics_page.dart    # Scan statistics & breakdown dashboard UI
+│   │   ├── qr_generator_page.dart # Custom QR creator & saved QR history UI
+│   │   ├── scan_history_page.dart # Search, folder/tag filters, notes editor & export UI
+│   │   └── scanner_page.dart      # Camera viewfinder, batch mode & smart action sheet
+│   ├── services/
+│   │   ├── analytics_service.dart   # KPI & category/format distribution aggregator
+│   │   ├── export_service.dart      # RFC 4180 CSV export & idempotent JSON backup/restore
+│   │   ├── folder_tag_service.dart  # Folder & Tag CRUD + ScanTags M:N operations
+│   │   ├── qr_generator_service.dart# Persistence service for QRGenerated table
+│   │   ├── scan_service.dart        # ScanHistory CRUD, filtering & ScanActions logging
+│   │   └── smart_action_service.dart# Structured payload parser & url_launcher actions
+│   └── main.dart              # Application entry point, home hub & drawer navigation
 ├── test/
-│   └── database_test.dart    # In-memory Drift unit test suite
-├── fa.png                    # Application banner / preview asset
-├── pubspec.yaml              # Flutter dependencies and asset manifest
-└── README.md                 # Project documentation, ERD & database roadmap
+│   ├── database_test.dart     # In-memory Drift, service, export & parser unit tests
+│   └── widget_test.dart       # HomePage widget smoke test
+├── fa.png                     # Application banner / preview asset
+├── pubspec.yaml               # Flutter dependencies and asset manifest
+└── README.md                  # Project documentation, ERD & database roadmap
 ```
 
 ---
@@ -90,9 +114,10 @@ QR-Scanner/
 
 ### Prerequisites
 
-- [Flutter SDK](https://docs.flutter.dev/get-started/install) installed and configured in your `PATH`
-- **Android**: Android Studio & Android SDK (API level configured in `android/app/build.gradle`)
-- **iOS**: macOS with Xcode and CocoaPods (`pod install`)
+- [Flutter SDK](https://docs.flutter.dev/get-started/install) (`3.x`, Dart `>=3.0.0 <4.0.0`) configured in your `PATH`
+- **Java JDK 17** (required for Android Gradle Plugin `8.5.2`)
+- **Android**: Android Studio & Android SDK (minimum API Level `21`)
+- **iOS**: macOS with Xcode and CocoaPods (`pod install`, minimum `iOS 12.0`)
 
 ### Installation
 
@@ -102,45 +127,62 @@ QR-Scanner/
    cd QR-Scanner
    ```
 
-2. **Install dependencies:**
+2. **Install dependencies & generate Drift code:**
    ```bash
    flutter pub get
-   ```
-   Ensure `pubspec.yaml` includes:
-   ```yaml
-   dependencies:
-     flutter:
-       sdk: flutter
-     cupertino_icons: ^1.0.0
-     barcode_scan: ^1.0.0
+   dart run build_runner build --delete-conflicting-outputs
    ```
 
-3. **Run the application:**
+3. **Run static analysis & tests:**
+   ```bash
+   flutter analyze --no-fatal-infos
+   flutter test
+   ```
+
+4. **Run the application:**
    ```bash
    flutter run
    ```
 
 ### Android Configuration
 
-Verify the following entries in `android/app/src/main/AndroidManifest.xml`:
+Ensure `android/app/src/main/AndroidManifest.xml` uses Flutter Embedding v2 and includes camera permissions plus `<queries>` for `url_launcher`:
 
 ```xml
 <uses-permission android:name="android.permission.INTERNET" />
 <uses-permission android:name="android.permission.CAMERA" />
 
-<application ...>
-    ...
-    <activity android:name="com.apptreesoftware.barcodescan.BarcodeScannerActivity" />
+<queries>
+    <intent><action android:name="android.intent.action.VIEW" /><data android:scheme="https" /></intent>
+    <intent><action android:name="android.intent.action.VIEW" /><data android:scheme="http" /></intent>
+    <intent><action android:name="android.intent.action.VIEW" /><data android:scheme="tel" /></intent>
+    <intent><action android:name="android.intent.action.VIEW" /><data android:scheme="sms" /></intent>
+    <intent><action android:name="android.intent.action.VIEW" /><data android:scheme="mailto" /></intent>
+</queries>
+
+<application android:name="${applicationName}" ...>
+    <activity android:name=".MainActivity" android:exported="true" ...>
+        ...
+    </activity>
+    <meta-data android:name="flutterEmbedding" android:value="2" />
 </application>
 ```
 
 ### iOS Configuration
 
-Verify the camera usage description in `ios/Runner/Info.plist`:
+Ensure `ios/Runner/Info.plist` includes camera permission and URL query schemes for `url_launcher`:
 
 ```xml
 <key>NSCameraUsageDescription</key>
 <string>Camera permission is required for QR scanning.</string>
+<key>LSApplicationQueriesSchemes</key>
+<array>
+    <string>https</string>
+    <string>http</string>
+    <string>tel</string>
+    <string>sms</string>
+    <string>mailto</string>
+</array>
 ```
 
 ---
@@ -331,6 +373,8 @@ Contributions are welcome! Please follow standard Git workflow practices:
 ## Resources
 
 - [Master Project Documentation (`doc/DOKUMENTASI_PROYEK.md`)](doc/DOKUMENTASI_PROYEK.md)
+- [Master Project Documentation — PDF (`doc/DOKUMENTASI_PROYEK.pdf`)](doc/DOKUMENTASI_PROYEK.pdf)
+- [Master Project Documentation — HTML (`doc/DOKUMENTASI_PROYEK.html`)](doc/DOKUMENTASI_PROYEK.html)
 - [User & Developer Guide (`doc/PANDUAN_PENGGUNAAN.md`)](doc/PANDUAN_PENGGUNAAN.md)
 - [Database Specification & DDL (`doc/DATABASE.md`)](doc/DATABASE.md)
 - [System & Operational Flowcharts (`doc/FLOWCHART.md`)](doc/FLOWCHART.md)

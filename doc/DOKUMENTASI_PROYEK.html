@@ -149,15 +149,19 @@
 </tr>
 <tr>
 <td align="left"><strong>Versi Aplikasi</strong></td>
-<td align="left"><code>v1.1.0+2</code></td>
+<td align="left"><code>v1.2.0+3</code></td>
 </tr>
 <tr>
 <td align="left"><strong>Framework Utama</strong></td>
 <td align="left">Flutter (<code>sdk: flutter</code>, Dart <code>&gt;=3.0.0 &lt;4.0.0</code>)</td>
 </tr>
 <tr>
+<td align="left"><strong>Scanner &amp; Generator</strong></td>
+<td align="left"><code>mobile_scanner ^5.2.3</code>, <code>qr_flutter ^4.1.0</code>, <code>url_launcher ^6.2.5</code></td>
+</tr>
+<tr>
 <td align="left"><strong>Target Platform</strong></td>
-<td align="left">Android (API Level 21+) &amp; iOS (iOS 12.0+)</td>
+<td align="left">Android (API Level 21+, Embedding v2) &amp; iOS (iOS 12.0+)</td>
 </tr>
 <tr>
 <td align="left"><strong>Engine Basis Data</strong></td>
@@ -203,13 +207,20 @@
 <p>Aplikasi dibangun menggunakan pola <strong>Layered Clean Architecture</strong> yang memisahkan tanggung jawab kode menjadi 4 lapisan utama:</p>
 <pre><code class="language-mermaid">flowchart TB
     subgraph L1[&quot;1. Presentation / UI Layer&quot;]
-        HP[&quot;HomePage (lib/main.dart)&lt;br/&gt;• Antarmuka Kamera &amp; Floating Action Button&lt;br/&gt;• Drawer Navigasi &amp; Tampilan Hasil&quot;]
-        SHP[&quot;ScanHistoryPage (lib/pages/scan_history_page.dart)&lt;br/&gt;• Search Bar &amp; ChoiceChip Folder&lt;br/&gt;• StreamBuilder Reaktif Real-Time&lt;br/&gt;• Dialog Detail Scan &amp; Manajemen Tag&quot;]
+        HP[&quot;HomePage (lib/main.dart)&lt;br/&gt;• Hub Utama, Hasil Terakhir &amp; Drawer Navigasi&quot;]
+        SCP[&quot;ScannerPage (lib/pages/scanner_page.dart)&lt;br/&gt;• Viewfinder mobile_scanner v5, Flash &amp; Flip Kamera&lt;br/&gt;• Mode Standar &amp; Batch Scan + Modal Aksi Cerdas&quot;]
+        SHP[&quot;ScanHistoryPage (lib/pages/scan_history_page.dart)&lt;br/&gt;• Search Bar, Filter Favorit/Folder/Tag&lt;br/&gt;• Edit Judul/Catatan, Kelola Folder &amp; Tag, Ekspor/Restore&quot;]
+        QGP[&quot;QRGeneratorPage (lib/pages/qr_generator_page.dart)&lt;br/&gt;• Pembuat QR Kustom (Warna FG/BG &amp; ECC L/M/Q/H)&lt;br/&gt;• Tab Riwayat QR Dibuat&quot;]
+        ANP[&quot;AnalyticsPage (lib/pages/analytics_page.dart)&lt;br/&gt;• KPI Ringkas, Distribusi Kategori &amp; Format Barcode&quot;]
     end
 
     subgraph L2[&quot;2. Service / Domain Layer&quot;]
-        SS[&quot;ScanService (lib/services/scan_service.dart)&lt;br/&gt;• Logika CRUD Scan &amp; Deteksi Konten&lt;br/&gt;• Query Pencarian &amp; Filter Favorit/Folder&lt;br/&gt;• Pencatatan Aksi Interaksi (ScanActions)&quot;]
-        FTS[&quot;FolderTagService (lib/services/folder_tag_service.dart)&lt;br/&gt;• Pengelolaan Kategori Folder&lt;br/&gt;• Relasi Many-to-Many ScanTags&quot;]
+        SS[&quot;ScanService (lib/services/scan_service.dart)&lt;br/&gt;• CRUD Scan, Update Judul/Catatan, Filter Multi-Kondisi&lt;br/&gt;• Pencatatan Aksi Interaksi (ScanActions)&quot;]
+        FTS[&quot;FolderTagService (lib/services/folder_tag_service.dart)&lt;br/&gt;• CRUD &amp; Rename Folder, Hapus Tag &amp; Relasi ScanTags (M:N)&quot;]
+        SAS[&quot;SmartActionService (lib/services/smart_action_service.dart)&lt;br/&gt;• Parser 9 Kategori Konten &amp; Eksekusi url_launcher&quot;]
+        QGS[&quot;QRGeneratorService (lib/services/qr_generator_service.dart)&lt;br/&gt;• Persistensi &amp; Stream Tabel QRGenerated&quot;]
+        ANS[&quot;AnalyticsService (lib/services/analytics_service.dart)&lt;br/&gt;• Agregasi KPI, Tren Harian/Mingguan &amp; Ringkasan Teks&quot;]
+        EXS[&quot;ExportService (lib/services/export_service.dart)&lt;br/&gt;• Ekspor CSV RFC 4180 &amp; Backup/Restore JSON Idempoten&quot;]
     end
 
     subgraph L3[&quot;3. Data Persistence Layer (Drift ORM)&quot;]
@@ -222,58 +233,70 @@
         CIPHER[(&quot;SQLCipher Native Database (qr_scanner.sqlite)&lt;br/&gt;• Enkripsi AES-256 Halaman Basis Data At-Rest&quot;)]
     end
 
-    HP --&gt;|&quot;Panggil Simpan Scan&quot;| SS
-    HP --&gt;|&quot;Navigasi Menu&quot;| SHP
-    SHP --&gt;|&quot;Stream Query &amp; Aksi&quot;| SS
+    HP --&gt;|&quot;Navigasi&quot;| SCP
+    HP --&gt;|&quot;Navigasi&quot;| SHP
+    HP --&gt;|&quot;Navigasi&quot;| QGP
+    HP --&gt;|&quot;Navigasi&quot;| ANP
+    SCP --&gt;|&quot;Parse Konten &amp; Aksi&quot;| SAS
+    SCP --&gt;|&quot;Simpan Scan&quot;| SS
+    SAS --&gt;|&quot;Log ScanActions&quot;| SS
+    SHP --&gt;|&quot;Stream, Filter &amp; Edit&quot;| SS
     SHP --&gt;|&quot;Kelola Folder &amp; Tag&quot;| FTS
+    SHP --&gt;|&quot;Aksi Kontekstual&quot;| SAS
+    SHP --&gt;|&quot;Ekspor / Restore&quot;| EXS
+    QGP --&gt;|&quot;Simpan &amp; Stream QR&quot;| QGS
+    ANP --&gt;|&quot;Laporan Agregat&quot;| ANS
+    ANP --&gt;|&quot;Ekspor Cepat&quot;| EXS
+    ANS --&gt;|&quot;Query Agregasi&quot;| DB
+    EXS --&gt;|&quot;Backup / Restore&quot;| SS
+    EXS --&gt;|&quot;Backup / Restore&quot;| FTS
+    EXS --&gt;|&quot;Backup / Restore&quot;| QGS
     SS --&gt;|&quot;Operasi DML / DQL&quot;| DB
     FTS --&gt;|&quot;Transaksi Relasi&quot;| DB
+    QGS --&gt;|&quot;Operasi DML / DQL&quot;| DB
     DB --&gt;|&quot;Validasi Skema&quot;| TBL
     DB --&gt;|&quot;Ambil Kunci Kriptografi&quot;| KEY
     DB --&gt;|&quot;Enkripsi / Dekripsi I/O&quot;| CIPHER
 </code></pre>
 <hr>
 <h2>3. Alur Operasional Sistem (Flowcharts)</h2>
-<h3>3.1 Alur Pemindaian Kamera &amp; Penyimpanan</h3>
-<p>Alur saat pengguna menekan tombol pemindai hingga data tersimpan:</p>
+<h3>3.1 Alur Pemindaian Kamera, Batch Mode &amp; Aksi Cerdas</h3>
+<p>Alur saat pengguna membuka <code>ScannerPage</code> hingga data dianalisis, ditindaklanjuti, dan tersimpan:</p>
 <pre><code class="language-mermaid">flowchart TD
     Start([&quot;Buka Aplikasi&quot;]) --&gt; Home[&quot;Layar Utama (HomePage)&quot;]
-    Home --&gt; PressScan[&quot;Tekan Tombol &#39;Scan&#39;&quot;]
-    PressScan --&gt; CheckPerm{&quot;Izin Akses Kamera?&quot;}
+    Home --&gt; PressScan[&quot;Pilih &#39;Scan Kamera&#39; atau &#39;Mode Batch&#39;&quot;]
+    PressScan --&gt; CamOpen[&quot;Buka ScannerPage (mobile_scanner v5)&lt;br/&gt;• Kontrol Flash &amp; Ganti Kamera&lt;br/&gt;• Segmented Toggle Standar / Batch&quot;]
 
-    CheckPerm -- &quot;Ditolak&quot; --&gt; DeniedMsg[&quot;Tampilkan Pesan:&lt;br/&gt;&#39;Camera permission was denied&#39;&quot;]
-    CheckPerm -- &quot;Diberikan&quot; --&gt; CamOpen[&quot;Aktifkan Kamera Pemindai&quot;]
+    CamOpen --&gt; Capture{&quot;BarcodeCapture.onDetect()&quot;}
+    Capture -- &quot;Mode Batch Aktif&quot; --&gt; Debounce{&quot;Duplikat &lt; 1.5 detik?&quot;}
+    Debounce -- &quot;Ya&quot; --&gt; Ignore[&quot;Abaikan Sementara&quot;]
+    Debounce -- &quot;Tidak&quot; --&gt; ParseBatch[&quot;SmartActionService.parse() (9 Kategori)&quot;]
+    ParseBatch --&gt; SaveBatch[&quot;ScanService.insertScan()&lt;br/&gt;+ Tambah ke Baki Sesi Batch&quot;]
 
-    CamOpen --&gt; Capture{&quot;Hasil Pembacaan&quot;}
-    Capture -- &quot;Dibatalkan / Tombol Back&quot; --&gt; CancelMsg[&quot;Pesan: Batal memindai&quot;]
-    Capture -- &quot;Berhasil Membaca&quot; --&gt; DetectType[&quot;Deteksi Tipe Konten Otomatis:&lt;br/&gt;• URL (http/https)&lt;br/&gt;• Wi-Fi (WIFI:)&lt;br/&gt;• Kontak (BEGIN:VCARD)&lt;br/&gt;• Geo (geo:)&lt;br/&gt;• Teks Biasa&quot;]
-
-    DetectType --&gt; SaveLocal[&quot;Panggil ScanService.insertScan()&quot;]
-    SaveLocal --&gt; InitSec{&quot;Inisialisasi Database&quot;}
-    InitSec --&gt; LoadKey[&quot;Ambil Kunci 256-bit dari Secure Storage&quot;]
-    LoadKey --&gt; EncryptSave[&quot;Simpan ke Tabel SCAN_HISTORY&lt;br/&gt;(Terenkripsi SQLCipher AES-256)&quot;]
-    EncryptSave --&gt; DisplayHome[&quot;Perbarui Tampilan Layar Utama&quot;]
-    DisplayHome --&gt; End([&quot;Selesai&quot;])
-    DeniedMsg --&gt; End
-    CancelMsg --&gt; End
+    Capture -- &quot;Mode Standar&quot; --&gt; ParseSingle[&quot;SmartActionService.parse():&lt;br/&gt;url | wifi | vcard | email |&lt;br/&gt;phone | sms | geo | product | text&quot;]
+    ParseSingle --&gt; SaveLocal[&quot;ScanService.insertScan()&lt;br/&gt;(SQLCipher AES-256)&quot;]
+    SaveLocal --&gt; ShowSheet[&quot;Tampilkan Bottom Sheet Aksi Cerdas:&lt;br/&gt;• Atribut Terstruktur &amp; Aksi Native (url_launcher)&lt;br/&gt;• Scan Lagi / Kembali ke Beranda&quot;]
+    SaveBatch --&gt; End([&quot;Selesai&quot;])
+    ShowSheet --&gt; End
+    Ignore --&gt; End
 </code></pre>
-<h3>3.2 Alur Riwayat Scan &amp; Interaksi Pengguna</h3>
-<p>Alur kerja pada halaman riwayat scan terhubung secara reaktif (<em>reactive stream</em>):</p>
+<h3>3.2 Alur Riwayat Scan, Manajemen Folder/Tag &amp; Backup</h3>
+<p>Alur kerja pada <code>ScanHistoryPage</code> terhubung secara reaktif (<em>reactive stream</em>):</p>
 <pre><code class="language-mermaid">flowchart TD
     OpenHistory([&quot;Buka Menu Riwayat Scan&quot;]) --&gt; StreamWatch[&quot;Berlangganan Stream: watchFilteredScans()&quot;]
-    StreamWatch --&gt; FilterEvaluator[&quot;Evaluasi Filter Aktif:&lt;br/&gt;1. Kata Kunci Search Bar&lt;br/&gt;2. Status Bintang Favorit&lt;br/&gt;3. Kategori Folder Terpilih&lt;br/&gt;4. Data Aktif (isDeleted = false)&quot;]
+    StreamWatch --&gt; FilterEvaluator[&quot;Evaluasi Filter Aktif:&lt;br/&gt;1. Kata Kunci (rawValue / title / notes)&lt;br/&gt;2. Status Favorit (isFavorite)&lt;br/&gt;3. Chip Folder Terpilih (folderId)&lt;br/&gt;4. Chip Tag Terpilih (tagId via ScanTags)&lt;br/&gt;5. Data Aktif (isDeleted = false)&quot;]
 
     FilterEvaluator --&gt; RenderItems[&quot;Tampilkan Daftar Scan&quot;]
     RenderItems --&gt; UserAction{&quot;Pilihan Interaksi Pengguna&quot;}
 
-    UserAction -- &quot;Salin Nilai&quot; --&gt; CopyAction[&quot;Salin ke Clipboard &amp;&lt;br/&gt;Catat ke Tabel SCAN_ACTIONS&quot;]
-    UserAction -- &quot;Tandai Favorit&quot; --&gt; FavAction[&quot;Toggle isFavorite (true / false)&quot;]
-    UserAction -- &quot;Geser Kiri (Swipe)&quot; --&gt; DelAction[&quot;Soft Delete (isDeleted = true)&quot;]
-    UserAction -- &quot;Ketuk Item&quot; --&gt; DetailModal[&quot;Buka Dialog Detail Scan:&lt;br/&gt;• Atur Dropdown Folder&lt;br/&gt;• Pasang / Buat Chip Tag&quot;]
+    UserAction -- &quot;Kelola Folder &amp; Tag&quot; --&gt; ManageSheet[&quot;Sheet Kelola: Buat / Rename / Hapus Folder &amp; Hapus Tag&quot;]
+    UserAction -- &quot;Ekspor / Restore&quot; --&gt; ExportSheet[&quot;Ekspor CSV (RFC 4180) atau&lt;br/&gt;Backup/Restore JSON Idempoten&quot;]
+    UserAction -- &quot;Salin / Bintang / Swipe&quot; --&gt; QuickAct[&quot;Salin (+ log SCAN_ACTIONS) / Toggle Favorit / Soft Delete&quot;]
+    UserAction -- &quot;Ketuk Item&quot; --&gt; DetailModal[&quot;Dialog Detail Scan:&lt;br/&gt;• Edit &amp; Simpan Judul + Catatan&lt;br/&gt;• Aksi Cerdas Kontekstual&lt;br/&gt;• Atur Folder &amp; Pasang/Buat Tag&quot;]
 
-    CopyAction --&gt; StreamWatch
-    FavAction --&gt; StreamWatch
-    DelAction --&gt; StreamWatch
+    ManageSheet --&gt; StreamWatch
+    ExportSheet --&gt; StreamWatch
+    QuickAct --&gt; StreamWatch
     DetailModal --&gt; StreamWatch
 </code></pre>
 <hr>
@@ -428,48 +451,67 @@
 <pre><code class="language-text">QR-Scanner/
 ├── .github/
 │   └── workflows/
-│       └── flutter_test.yml      # CI Otomatis: Build &amp; Eksekusi Unit Test
-├── android/                      # Wrapper &amp; Manifest Konfigurasi Android
-├── ios/                          # Wrapper &amp; Info.plist Konfigurasi iOS
-├── doc/                          # Dokumentasi Teknis Lengkap
-│   ├── DATABASE.md               # Kamus Data &amp; DDL SQL (SQLite / PostgreSQL)
-│   ├── DOKUMENTASI_PROYEK.md     # Dokumen Resmi Master Proyek (File ini)
-│   ├── FLOWCHART.md              # Diagram Alur Lengkap Sistem
-│   ├── PANDUAN_PENGGUNAAN.md     # Panduan Operasional Pengguna &amp; Developer
-│   └── RINGKASAN_PERBAIKAN.md    # Rekapitulasi Riwayat Pengembangan
+│       ├── flutter_test.yml       # CI: Analyze, Build Drift, Unit/Widget Test &amp; APK Build
+│       └── release.yml            # CD: Publikasi GitHub Release &amp; Lampiran PDF Otomatis
+├── android/                       # Android Embedding v2, Gradle 8.5.2 &amp; AndroidManifest
+├── ios/                           # iOS Runner, Podfile (iOS 12.0+) &amp; Info.plist
+├── doc/                           # Dokumentasi Teknis Lengkap
+│   ├── DATABASE.md                # Kamus Data &amp; DDL SQL (SQLite / PostgreSQL)
+│   ├── DOKUMENTASI_PROYEK.md      # Dokumen Resmi Master Proyek (File ini)
+│   ├── DOKUMENTASI_PROYEK.html    # Ekspor HTML Resmi Dokumentasi Proyek
+│   ├── DOKUMENTASI_PROYEK.pdf     # Ekspor PDF Siap Cetak Dokumentasi Proyek
+│   ├── FLOWCHART.md               # Diagram Alur Lengkap Sistem
+│   ├── PANDUAN_PENGGUNAAN.md      # Panduan Operasional Pengguna &amp; Developer
+│   └── RINGKASAN_PERBAIKAN.md     # Rekapitulasi Riwayat Pengembangan
 ├── lib/
 │   ├── database/
-│   │   ├── database.dart         # Singleton AppDatabase &amp; Engine SQLCipher
-│   │   └── tables.dart           # Definisi 9 Tabel Drift ORM
+│   │   ├── database.dart          # Singleton AppDatabase &amp; Engine SQLCipher
+│   │   └── tables.dart            # Definisi 9 Tabel Relasional (Drift ORM)
 │   ├── pages/
-│   │   └── scan_history_page.dart# Halaman Riwayat Scan, Filter &amp; Detail Modal
+│   │   ├── analytics_page.dart    # Dashboard Statistik &amp; Distribusi Kategori
+│   │   ├── qr_generator_page.dart # Pembuat QR Kustom &amp; Tab Riwayat QR Dibuat
+│   │   ├── scan_history_page.dart # Riwayat, Search, Filter Folder/Tag, Notes &amp; Export
+│   │   └── scanner_page.dart      # Viewfinder mobile_scanner v5, Batch &amp; Smart Actions
 │   ├── services/
-│   │   ├── folder_tag_service.dart# Layanan Bisnis Folder &amp; Tag (M:N)
-│   │   └── scan_service.dart     # Layanan Bisnis Scan, Search, Filter &amp; Actions
-│   └── main.dart                 # Entry Point Aplikasi, Layar Kamera &amp; Drawer
+│   │   ├── analytics_service.dart   # Layanan Agregasi Statistik &amp; Laporan Ringkas
+│   │   ├── export_service.dart      # Layanan Ekspor CSV RFC 4180 &amp; Restore JSON Idempoten
+│   │   ├── folder_tag_service.dart  # Layanan CRUD/Rename Folder, Hapus Tag &amp; ScanTags
+│   │   ├── qr_generator_service.dart# Layanan Persistensi Tabel QRGenerated
+│   │   ├── scan_service.dart        # Layanan CRUD Scan, Update Notes, Filter &amp; Actions
+│   │   └── smart_action_service.dart# Parser 9 Tipe Konten &amp; Eksekusi url_launcher
+│   └── main.dart                  # Entry Point Aplikasi, Beranda &amp; Drawer Navigasi
 ├── test/
-│   └── database_test.dart        # Suite Unit Test In-Memory Drift Database
-├── pubspec.yaml                  # Manifest Dependensi Proyek Flutter
-└── README.md                     # Halaman Utama Repositori GitHub
+│   ├── database_test.dart         # Suite Unit Test In-Memory DB &amp; Seluruh Service
+│   └── widget_test.dart           # Smoke Test Antarmuka HomePage
+├── pubspec.yaml                   # Manifest Dependensi Proyek Flutter
+└── README.md                      # Halaman Utama Repositori GitHub
 </code></pre>
 <hr>
 <h2>7. Pengujian Otomatis (<em>Unit Testing</em>) &amp; CI/CD</h2>
-<p>Proyek dilengkapi dengan pipeline jaminan kualitas (<em>Quality Assurance</em>) otomatis:</p>
-<h3>7.1 Cakupan Unit Test (<code>test/database_test.dart</code>)</h3>
+<p>Proyek dilengkapi dengan pipeline jaminan kualitas (<em>Quality Assurance</em>) dan rilis otomatis:</p>
+<h3>7.1 Cakupan Unit &amp; Widget Test (<code>test/</code>)</h3>
 <ul>
-<li><strong>Verifikasi UUID &amp; Default Value</strong>: Memastikan kolom <code>id</code> menghasilkan UUID v4 36-karakter serta default <code>sync_status = &#39;pending&#39;</code>.</li>
-<li><strong>Pengujian Logika Bisnis Scan</strong>: Pengujian fungsi <code>insertScan</code>, toggle bintang favorit, serta verifikasi <em>soft delete</em>.</li>
-<li><strong>Pencarian &amp; Multi-Filter</strong>: Pengujian query <code>searchScans</code> terhadap kombinasi kata kunci, status favorit, dan folder.</li>
-<li><strong>Relasi &amp; Cascade Delete</strong>: Memverifikasi <em>composite primary key</em> <code>ScanTags</code> menolak duplikasi tag, serta memastikan penghapusan data induk memicu <code>ON DELETE CASCADE</code> ke tabel anak.</li>
+<li><strong>Verifikasi UUID &amp; Default Value (<code>test/database_test.dart</code>)</strong>: Memastikan kolom <code>id</code> menghasilkan UUID v4 36-karakter serta default <code>sync_status = &#39;pending&#39;</code>.</li>
+<li><strong>Logika Bisnis Scan (<code>ScanService</code>)</strong>: Pengujian <code>insertScan</code>, <code>updateScanDetails</code> (edit &amp; reset judul/catatan), toggle favorit, serta <em>soft delete</em>.</li>
+<li><strong>Pencarian &amp; Multi-Filter</strong>: Pengujian <code>searchScans</code> terhadap kombinasi kata kunci (<code>rawValue</code>/<code>title</code>/<code>notes</code>), status favorit, <code>folderId</code>, dan <code>tagId</code> (subquery <code>ScanTags</code>).</li>
+<li><strong>Relasi, Rename &amp; Cascade (<code>FolderTagService</code>)</strong>: Pengujian <em>composite primary key</em> <code>ScanTags</code>, <code>renameFolder</code>, <code>deleteTag</code>, serta <code>ON DELETE CASCADE</code> dan detaching folder saat <code>deleteFolder</code>.</li>
+<li><strong>QR Generator (<code>QRGeneratorService</code>) &amp; Batch Scanning</strong>: Verifikasi persistensi kustomisasi warna/<code>errorCorrection</code>, urutan kronologis batch, serta <em>soft delete</em>.</li>
+<li><strong>Analitik (<code>AnalyticsService</code>)</strong>: Verifikasi agregasi KPI, jumlah harian/mingguan, distribusi tipe &amp; format, serta teks laporan ringkasan.</li>
+<li><strong>Ekspor &amp; Backup Idempoten (<code>ExportService</code>)</strong>: Validasi <em>escaping</em> CSV RFC 4180 serta siklus backup &amp; restore JSON (folder, tag, relasi <code>ScanTags</code>, scan, dan QR dibuat) tanpa duplikasi pada restore berulang.</li>
+<li><strong>Parser Aksi Cerdas (<code>SmartActionService</code>)</strong>: Pengujian parsing <code>URL</code>, <code>WIFI</code>, <code>vCard</code>, <code>tel</code>, <code>smsto</code>, <code>geo</code>, dan barcode produk.</li>
+<li><strong>Widget Smoke Test (<code>test/widget_test.dart</code>)</strong>: Memverifikasi <code>HomePage</code> serta kontrol navigasi utama (<code>QR Scanner</code>, <code>Scan Kamera</code>, <code>Mode Batch</code>, <code>Statistik</code>) ter-render dengan benar.</li>
 </ul>
-<h3>7.2 Integrasi Berkelanjutan (<em>Continuous Integration</em>)</h3>
-<p>Workflow GitHub Actions (<a href="../.github/workflows/flutter_test.yml">.github/workflows/flutter_test.yml</a>) berjalan secara otomatis pada setiap <em>push</em> atau <em>pull request</em> ke branch <code>main</code>:</p>
+<h3>7.2 Integrasi &amp; Rilis Berkelanjutan (<em>CI/CD</em>)</h3>
 <ol>
-<li>Menyediakan <em>runner</em> Ubuntu dengan paket native <code>libsqlite3-dev</code>.</li>
-<li>Menyiapkan lingkungan Flutter SDK stable.</li>
-<li>Menjalankan <code>flutter pub get</code>.</li>
-<li>Menjalankan generator kode <code>build_runner</code> untuk Drift.</li>
-<li>Mengeksekusi seluruh pengujian <code>flutter test test/database_test.dart</code>.</li>
+<li><strong>Continuous Integration (<a href="../.github/workflows/flutter_test.yml">.github/workflows/flutter_test.yml</a>)</strong>: Berjalan otomatis pada setiap <em>push</em> atau <em>pull request</em> ke <code>main</code>:<ul>
+<li>Menyiapkan lingkungan Ubuntu (<code>libsqlite3-dev</code>), <strong>Java 17 (Temurin)</strong>, dan <strong>Flutter SDK stable</strong>.</li>
+<li>Menjalankan <code>flutter pub get</code> dan <code>dart run build_runner build --delete-conflicting-outputs</code>.</li>
+<li>Menjalankan analisis statis <code>flutter analyze --no-fatal-infos</code>.</li>
+<li>Mengeksekusi seluruh pengujian <code>flutter test</code> (<code>database_test.dart</code> &amp; <code>widget_test.dart</code>).</li>
+<li>Memverifikasi kompilasi Android via <code>flutter build apk --debug</code>.</li>
+</ul>
+</li>
+<li><strong>Continuous Delivery (<a href="../.github/workflows/release.yml">.github/workflows/release.yml</a>)</strong>: Berjalan otomatis setiap ada <em>push</em> tag <code>v*</code> untuk mempublikasikan <strong>GitHub Release</strong> beserta berkas PDF dokumentasi proyek.</li>
 </ol>
 <hr>
 <h2>8. Panduan Instalasi &amp; Deployment</h2>
@@ -495,8 +537,9 @@ cd QR-Scanner
 <pre><code class="language-bash">dart run build_runner build --delete-conflicting-outputs
 </code></pre>
 </li>
-<li><p><strong>Jalankan Unit Test</strong>:</p>
-<pre><code class="language-bash">flutter test test/database_test.dart
+<li><p><strong>Jalankan Analisis Statis &amp; Seluruh Pengujian</strong>:</p>
+<pre><code class="language-bash">flutter analyze --no-fatal-infos
+flutter test
 </code></pre>
 </li>
 <li><p><strong>Jalankan Aplikasi pada Emulator/Perangkat Fisik</strong>:</p>
