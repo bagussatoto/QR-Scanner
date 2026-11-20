@@ -8,7 +8,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutterqrscan/pages/scan_history_page.dart';
 import 'package:flutterqrscan/services/scan_service.dart';
 import 'package:flutterqrscan/services/smart_action_service.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
@@ -759,45 +758,56 @@ class _ScannerPageState extends State<ScannerPage>
                         ),
                       ),
 
-                      Row(
-                        children: [
-                          // Torch Toggle
-                          ValueListenableBuilder<TorchState>(
-                            valueListenable: _controller.torchState,
-                            builder: (context, state, child) {
-                              final isTorchOn = state == TorchState.on;
-                              return CircleAvatar(
+                      ValueListenableBuilder<MobileScannerState>(
+                        valueListenable: _controller,
+                        builder: (context, state, child) {
+                          final torchState = state.torchState;
+                          final isTorchUnavailable =
+                              torchState == TorchState.unavailable;
+                          final isTorchOn = torchState == TorchState.on;
+                          final isFrontCamera =
+                              state.cameraDirection == CameraFacing.front;
+
+                          return Row(
+                            children: [
+                              // Torch Toggle
+                              CircleAvatar(
                                 backgroundColor: isTorchOn
                                     ? Colors.deepOrange
                                     : Colors.black45,
                                 child: IconButton(
                                   icon: Icon(
-                                    isTorchOn
-                                        ? Icons.flash_on
-                                        : Icons.flash_off,
-                                    color: Colors.white,
+                                    isTorchUnavailable
+                                        ? Icons.no_flash
+                                        : (isTorchOn
+                                            ? Icons.flash_on
+                                            : Icons.flash_off),
+                                    color: isTorchUnavailable
+                                        ? Colors.white38
+                                        : Colors.white,
                                   ),
-                                  onPressed: () => _controller.toggleTorch(),
+                                  onPressed: isTorchUnavailable
+                                      ? null
+                                      : () => _controller.toggleTorch(),
                                 ),
-                              );
-                            },
-                          ),
-                          const SizedBox(width: 8),
-                          // Camera Switch Toggle
-                          ValueListenableBuilder<CameraFacing>(
-                            valueListenable: _controller.cameraFacingState,
-                            builder: (context, state, child) {
-                              return CircleAvatar(
+                              ),
+                              const SizedBox(width: 8),
+                              // Camera Switch Toggle
+                              CircleAvatar(
                                 backgroundColor: Colors.black45,
                                 child: IconButton(
-                                  icon: const Icon(Icons.cameraswitch,
-                                      color: Colors.white),
+                                  icon: Icon(
+                                    isFrontCamera
+                                        ? Icons.camera_front
+                                        : Icons.cameraswitch,
+                                    color: Colors.white,
+                                  ),
                                   onPressed: () => _controller.switchCamera(),
                                 ),
-                              );
-                            },
-                          ),
-                        ],
+                              ),
+                            ],
+                          );
+                        },
                       ),
                     ],
                   ),

@@ -1,4 +1,4 @@
-name: Flutter Database Unit Tests
+name: Flutter CI & Build Verification
 
 on:
   push:
@@ -17,6 +17,12 @@ jobs:
       - name: Install SQLite3 native library for Linux runner
         run: sudo apt-get update && sudo apt-get install -y libsqlite3-dev
 
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
@@ -29,6 +35,11 @@ jobs:
       - name: Generate Drift database code
         run: dart run build_runner build --delete-conflicting-outputs
 
-      - name: Run unit tests
-        run: flutter test test/database_test.dart
+      - name: Analyze Dart code
+        run: flutter analyze --no-fatal-infos
 
+      - name: Run unit & widget tests
+        run: flutter test
+
+      - name: Verify Android debug APK build
+        run: flutter build apk --debug

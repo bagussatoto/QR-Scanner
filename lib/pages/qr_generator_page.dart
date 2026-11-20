@@ -298,6 +298,37 @@ class _QRGeneratorPageState extends State<QRGeneratorPage>
           ),
           const SizedBox(height: 16),
 
+          // Warna Latar (Background)
+          const Text('Warna Latar QR (Background):',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+          const SizedBox(height: 6),
+          Row(
+            children: _bgColors.map((item) {
+              final color = item['color'] as Color;
+              final isSelected = _bgColor == color;
+              return GestureDetector(
+                onTap: () => setState(() => _bgColor = color),
+                child: Container(
+                  margin: const EdgeInsets.only(right: 10),
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: color,
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: isSelected ? Colors.deepOrange : Colors.grey.shade400,
+                      width: isSelected ? 3 : 1,
+                    ),
+                  ),
+                  child: isSelected
+                      ? const Icon(Icons.check, color: Colors.deepOrange, size: 20)
+                      : null,
+                ),
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: 16),
+
           // Level Koreksi Eror
           const Text('Tingkat Toleransi Eror (Error Correction):',
               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
